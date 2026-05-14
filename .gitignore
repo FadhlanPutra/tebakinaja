@@ -1,0 +1,14 @@
+.env
+node_modules
+dist
+build
+
+.vscode/
+.idea/
+*.swp
+
+.DS_Store
+Thumbs.db
+
+tebakinaja.rar
+tebakinaja.zip

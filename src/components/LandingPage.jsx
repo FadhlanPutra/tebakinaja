@@ -2,7 +2,8 @@ import React, { useState, useContext, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, HelpCircle, Trophy, Play, X, Settings } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
-import { getLeaderboard, onAuthChange } from '../services/firebaseService';
+import { getLeaderboard } from '../services/firebaseService';
+import { authRestoreSession } from '../services/authService';
 import SettingsPage from './SettingsPage';
 import { getOrCreateToken, getUserData } from '../services/tokenService';
 
@@ -60,18 +61,13 @@ const LandingPage = () => {
       }
     });
 
-    const unsubscribe = onAuthChange((user) => {
-      if (user) {
-        dispatch({ type: 'SET_GOOGLE_USER', payload: {
-          uid: user.uid,
-          displayName: user.displayName,
-          email: user.email,
-          photoURL: user.photoURL
-        }});
+    const restoreSession = async () => {
+      const savedUser = await authRestoreSession();
+      if (savedUser) {
+        dispatch({ type: 'SET_GOOGLE_USER', payload: savedUser });
       }
-    });
-
-    return () => unsubscribe();
+    };
+    restoreSession();
   }, [dispatch]);
 
   const handleStart = () => {

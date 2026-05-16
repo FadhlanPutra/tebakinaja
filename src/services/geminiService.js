@@ -10,47 +10,63 @@ const genAI = new GoogleGenerativeAI(API_KEY);
  */
 export const generateGameClue = async (placeData, otherPlaces) => {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+    // const model = genAI.getGenerativeModel({
+    //   model: "gemini-2.0-flash",
+    //   generationConfig: {
+    //     responseMimeType: "application/json", // hanya jalan di v1beta
+    //   }
+    // });
 
-    // Generate distractors for choices
-    const distractors = otherPlaces
-      .filter(p => p.name !== placeData.name)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .map(p => p.name);
-    
-    // Add correct answer and shuffle
-    const choices = [...distractors, placeData.name].sort(() => 0.5 - Math.random());
-
-    const prompt = `
+const prompt = `
 Anda adalah AI pembuat kuis game geoguessr bernama "TebakinAja".
 Buatkan 1 soal teka-teki tentang tempat berikut:
 Nama Tempat: ${placeData.name}
-Alamat: ${placeData.formatted_address || "Indonesia"}
+Kategori: ${placeData.category || 'tempat umum'}
+Alamat: ${placeData.address || 'Indonesia'}
 
-Aturan:
-1. 'clue': Buat 1-2 kalimat petunjuk yang menarik, deskriptif, membahas ciri fisik, sejarah, atau kegiatan di sana, TAPI JANGAN PERNAH menyebutkan nama tempatnya secara langsung atau sebagian dari namanya.
-2. 'difficulty': Pilih antara "easy", "medium", atau "hard".
-3. 'fun_fact': Berikan satu fakta unik, lucu, atau historis tentang tempat ini.
+ATURAN DIFFICULTY (wajib ikuti):
+- "easy": tempat yang SANGAT terkenal, dikenal hampir semua orang Indonesia (Monas, GBK, dsb)
+- "medium": tempat yang cukup dikenal warga lokal kota tersebut
+- "hard": tempat yang hanya dikenal orang yang tinggal atau sering ke kota tersebut
 
-Respons HANYA berupa JSON murni dengan struktur persis seperti di bawah ini, tanpa awalan/akhiran markdown:
+JANGAN jadikan tempat dengan nama asing/kolonial/tidak umum sebagai soal "easy" atau "medium".
+Kalau nama tempatnya tidak umum dikenal, wajib pilih "hard".
+
+ATURAN CLUE:
+- Sesuaikan dengan kategori: restoran → bahas menu/suasana, mall → bahas tenant/arsitektur, taman → bahas aktivitas
+- JANGAN selalu bahas sejarah kolonial
+- JANGAN sebut nama tempat di clue
+- Buat clue yang fun dan relatable, bukan seperti buku sejarah
+
+Respons HANYA JSON murni:
 {
-  "clue": "isi petunjuk disini",
+  "clue": "...",
   "answer": "${placeData.name}",
-  "accepted_answers": ["nama resmi", "nama populer", "singkatan", "sebutan lain"],
-  "difficulty": "medium",
-  "fun_fact": "isi fakta unik disini"
+  "accepted_answers": [...],
+  "difficulty": "easy|medium|hard",
+  "fun_fact": "..."
 }
-
-Untuk accepted_answers: isi dengan semua variasi nama yang umum dipakai masyarakat lokal, singkatan populer, dan nama resminya. Contoh untuk "Monumen Nasional": ["monumen nasional", "monas", "tugu monas", "national monument"]
 `;
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: "application/json",
+    const generateWithRetry = async (model, payload, maxRetries = 3) => {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await model.generateContent(payload);
+        } catch (error) {
+          if (error.message?.includes('503') && i < maxRetries - 1) {
+            // Tunggu 2 detik sebelum retry
+            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+            continue;
+          }
+          throw error;
+        }
       }
+    };
+
+    const result = await generateWithRetry(model, {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7 }
     });
 
     const responseText = result.response.text();
@@ -69,12 +85,30 @@ Untuk accepted_answers: isi dengan semua variasi nama yang umum dipakai masyarak
       };
     }
 
-    return {
-      ...jsonResult,
-      choices,
-      lat: placeData.geometry.location.lat(),
-      lng: placeData.geometry.location.lng()
-    };
+    // Generate distractors for choices
+    const distractors = otherPlaces
+      .filter(p => p.name !== placeData.name)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3)
+      .map(p => p.name);
+    
+    // Add correct answer and shuffle
+    const choices = [...distractors, jsonResult.answer].sort(() => 0.5 - Math.random());
+
+    const lat = placeData.lat 
+      ?? placeData.geometry?.location?.lat?.() 
+      ?? placeData.location?.lat?.();
+
+    const lng = placeData.lng 
+      ?? placeData.geometry?.location?.lng?.() 
+      ?? placeData.location?.lng?.();
+
+  return {
+    ...jsonResult,
+    choices,
+    lat,
+    lng,
+  };
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw new Error("Gagal mengambil data dari AI. Periksa API Key atau koneksi Anda.");

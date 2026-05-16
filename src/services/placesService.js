@@ -1,93 +1,123 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebaseService';
 
+// Cache validity: 7 hari
+const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_COLLECTION = 'places_cache';
+
 /**
- * Fetch famous places using Google Places API
- * @param {string} city - Name of the city
- * @param {Object} mapInstance - Google Maps instance for PlacesService
+ * Fetch famous places using Google Places API (new Place class)
+ * Hasil di-cache ke Firestore agar tidak fetch ulang untuk kota yang sama.
+ * @param {string} city - Nama kota
  * @returns {Promise<Array>} List of place objects
  */
-export const fetchPlacesByCity = async (city, mapInstance) => {
-  const cacheCollection = "places_cache";
-  const cityKey = city.toLowerCase();
+export const fetchPlacesByCity = async (city) => {
+  const cityKey = city.toLowerCase().trim();
 
+  // ─── 1. Cek Firestore cache dulu ───────────────────────────────────────────
   try {
-    // Cek dokumen di Firestore: collection "places_cache", doc = nama kota (lowercase)
-    const docRef = doc(db, cacheCollection, cityKey);
+    const docRef = doc(db, CACHE_COLLECTION, cityKey);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       const data = docSnap.data();
       const fetchedAt = new Date(data.fetched_at).getTime();
-      const now = new Date().getTime();
-      const diffTime = now - fetchedAt;
-      const isCacheValid = diffTime < 7 * 24 * 60 * 60 * 1000;
+      const isCacheValid = (Date.now() - fetchedAt) < CACHE_DURATION_MS;
 
-      // Dokumen ada DAN fetched_at kurang dari 7 hari yang lalu?
       if (isCacheValid && data.places && data.places.length > 0) {
-        // Return places dari cache dan kembalikan struktur fungsi yang dibutuhkan
-        return data.places.map(p => ({
-          ...p,
-          geometry: {
-            location: {
-              lat: () => p.lat,
-              lng: () => p.lng
-            }
-          }
-        }));
+        console.log(`[PlacesService] Cache hit untuk kota: ${city} (${data.places.length} tempat)`);
+        return data.places;
       }
+
+      console.log(`[PlacesService] Cache expired untuk kota: ${city}, fetch ulang...`);
+    } else {
+      console.log(`[PlacesService] Tidak ada cache untuk kota: ${city}, fetch baru...`);
     }
   } catch (error) {
-    console.error("Firestore cache read error:", error);
-    // Kalau Firestore gagal diakses karena apapun, fallback langsung ke Places API dan jangan crash aplikasinya
+    console.error('[PlacesService] Firestore cache read error:', error);
+    // Fallback ke Places API, jangan crash
   }
 
-  // Fetch ke Google Places API
-  return new Promise((resolve, reject) => {
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-      return reject(new Error("Google Maps API belum dimuat"));
+  // ─── 2. Fetch ke Google Places API (per kategori) ──────────────────────────
+  try {
+    if (!window.google?.maps?.places?.Place) {
+      throw new Error('Google Maps Places API belum dimuat');
     }
 
-    // Gunakan map instance yang diteruskan atau buat dummy div
-    const service = new window.google.maps.places.PlacesService(
-      mapInstance || document.createElement('div')
-    );
+    // Query per kategori agar hasil lebih variatif
+    const queries = [
+      `tempat makan restoran kuliner khas populer di ${city} Indonesia`,
+      `pusat perbelanjaan mall terkenal di ${city} Indonesia`,
+      `taman hiburan rekreasi wisata alam di ${city} Indonesia`,
+      `tempat bersejarah landmark monumen ikonik di ${city} Indonesia`,
+      `cafe kedai kopi hits tempat nongkrong di ${city} Indonesia`,
+    ];
 
-    const request = {
-      query: `tempat wisata terkenal landmark bersejarah di ${city} Indonesia`,
-      fields: ['name', 'geometry', 'formatted_address', 'place_id', 'photos']
-    };
-    
-    service.textSearch(request, async (results, status) => {
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-        // Filter out places without geometry just in case
-        const validResults = results.filter(place => place.geometry && place.geometry.location);
-        
-        try {
-          // Simpan ke Firestore
-          const docRef = doc(db, cacheCollection, cityKey);
-          
-          const placesToSave = validResults.map(p => ({
-            name: p.name,
-            lat: typeof p.geometry.location.lat === 'function' ? p.geometry.location.lat() : p.geometry.location.lat,
-            lng: typeof p.geometry.location.lng === 'function' ? p.geometry.location.lng() : p.geometry.location.lng,
-            formatted_address: p.formatted_address || '',
-            place_id: p.place_id || ''
-          }));
+    const allPlaces = [];
 
-          await setDoc(docRef, {
-            fetched_at: new Date().toISOString(),
-            places: placesToSave
-          });
-        } catch (error) {
-          console.error("Firestore cache write error:", error);
-          // Tetap lanjut tanpa crash kalau gagal simpan
+    // Fetch tiap kategori secara berurutan
+    for (const query of queries) {
+      try {
+        const { places } = await window.google.maps.places.Place.searchByText({
+          textQuery: query,
+          fields: ['displayName', 'location', 'rating', 'types', 'formattedAddress'],
+          maxResultCount: 5, // 5 per kategori × 5 kategori = max 25 total
+          language: 'id',
+        });
+
+        if (places && places.length > 0) {
+          allPlaces.push(...places);
+          console.log(`[PlacesService] "${query}" → ${places.length} tempat ditemukan`);
         }
-
-        resolve(validResults);
-      } else {
-        reject(new Error(`Gagal mencari tempat di kota ${city}. Status: ${status}`));
+      } catch (queryError) {
+        console.warn(`[PlacesService] Query gagal: "${query}"`, queryError);
+        // Lanjut ke query berikutnya kalau satu gagal
       }
-    });
-  });
+    }
+
+    if (allPlaces.length === 0) {
+      console.warn(`[PlacesService] Tidak ada tempat ditemukan di kota: ${city}`);
+      return [];
+    }
+
+    // ─── 3. Filter dan deduplicate berdasarkan nama ─────────────────────────
+    const seen = new Set();
+    const mappedPlaces = allPlaces
+      .filter(p => {
+        if (!p.location || !p.displayName) return false;
+        if (seen.has(p.displayName)) return false;
+        seen.add(p.displayName);
+        return true;
+      })
+      .map(place => ({
+        name: place.displayName,
+        lat: place.location.lat(),
+        lng: place.location.lng(),
+        rating: place.rating || 0,
+        category: place.types?.[0] || 'landmark',
+        address: place.formattedAddress || '',
+      }));
+
+    console.log(`[PlacesService] Total ${mappedPlaces.length} tempat unik ditemukan di ${city}`);
+
+    // ─── 4. Simpan ke Firestore cache ───────────────────────────────────────
+    try {
+      const docRef = doc(db, CACHE_COLLECTION, cityKey);
+      await setDoc(docRef, {
+        fetched_at: new Date().toISOString(),
+        city: city,
+        places: mappedPlaces,
+      });
+      console.log(`[PlacesService] Cache tersimpan untuk kota: ${city}`);
+    } catch (cacheError) {
+      console.error('[PlacesService] Firestore cache write error:', cacheError);
+      // Tetap lanjut tanpa crash kalau gagal simpan cache
+    }
+
+    return mappedPlaces;
+
+  } catch (error) {
+    console.error(`[PlacesService] Gagal mencari tempat di kota ${city}:`, error);
+    return [];
+  }
 };

@@ -1,21 +1,35 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useContext } from 'react';
 import { useGameLogic } from '../hooks/useGameLogic';
-import CluePanel from './CluePanel';
+import { GameContext } from '../context/GameContext';
 import MapView from './MapView';
-import AnswerInput from './AnswerInput';
-import { Timer, Trophy, ArrowRight, Info } from 'lucide-react';
+import ClueModal from './ClueModal';
+import { Settings, Timer, Trophy, HelpCircle } from 'lucide-react';
+import SettingsPage from './SettingsPage';
 
-const GameScreen = () => {
-  const { state, submitAnswer, nextRound } = useGameLogic();
+const GameScreen = ({submitAnswer, nextRound}) => {
+  // const { state, submitAnswer, nextRound } = useGameLogic();
+  const { dispatch } = useContext(GameContext);
+  const { state } = useContext(GameContext);
   const [mapGuess, setMapGuess] = useState(null);
-  const [lastAnswerStatus, setLastAnswerStatus] = useState(null); // 'correct', 'wrong', null
-  
+  const [lastAnswerStatus, setLastAnswerStatus] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [lastPoints, setLastPoints] = useState(0);
+
   const question = state.currentQuestion;
+
+  // Deteksi waktu habis (time-up) — timerActive jadi false tanpa user submit
+  useEffect(() => {
+    if (!state.timerActive && question && lastAnswerStatus === null) {
+      setLastAnswerStatus('timeout');
+      dispatch({ type: 'TOGGLE_CLUE_MODAL', payload: true });
+    }
+  }, [state.timerActive, question]);
 
   const handleSubmit = (method, data) => {
     const isCorrect = submitAnswer(method, data);
     setLastAnswerStatus(isCorrect ? 'correct' : 'wrong');
+    dispatch({ type: 'TOGGLE_CLUE_MODAL', payload: true });
   };
 
   const handleNextRound = () => {
@@ -24,117 +38,120 @@ const GameScreen = () => {
     nextRound();
   };
 
-  if (!question && state.isLoading) {
+  const handleMapClick = (pos) => {
+    setMapGuess(pos);
+    // Setelah klik peta, modal muncul kembali otomatis
+    dispatch({ type: 'TOGGLE_CLUE_MODAL', payload: true });
+  };
+
+  // Peta hanya bisa diklik kalau MAP mode, modal tertutup, dan timer masih jalan
+  const isMapClickable =
+    state.answerMethod === 'MAP' &&
+    !state.showClueModal &&
+    state.timerActive;
+
+  if (state.isLoading && !question) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
         <div className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
           <p className="text-lg font-bold text-slate-700">{state.loadingMessage}</p>
         </div>
       </div>
     );
   }
 
-  if (!question) return null;
-
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen max-w-6xl mx-auto p-4 md:p-6 flex flex-col gap-6"
-    >
-      {/* Header */}
-      <header className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-wrap items-center justify-between gap-4">
+    <div className="fixed inset-0 overflow-hidden">
+      {/* ── Header tipis fixed di atas ────────────────────────────── */}
+      <header className="absolute top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-sm border-b border-slate-100 shadow-sm px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-heading font-extrabold text-dark">Tebakin<span className="text-primary">Aja</span> 🗺️</span>
-          <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-sm font-bold ml-2">
-            Ronde {state.round}/{state.maxRounds}
-          </span>
+          <span>TebakinAja 🗺️</span>
+          <span>Ronde {state.round}/{state.maxRounds}</span>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-secondary-dark font-extrabold text-xl">
-            <Trophy fill="currentColor" size={24} />
-            {state.score} pts
-          </div>
-          
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-lg
-            ${state.timeLeft <= 10 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-700'}
-          `}>
-            <Timer size={20} />
-            00:{state.timeLeft.toString().padStart(2, '0')}
+        <div className="flex items-center gap-3">
+          {/* Tombol cara bermain */}
+          <button onClick={() => setShowHowToPlay(true)}>
+            <HelpCircle size={20} />
+          </button>
+
+          {/* Tombol settings */}
+          <button onClick={() => setShowSettings(true)}>
+            <Settings size={20} />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-secondary-dark font-extrabold text-sm">
+              <Trophy fill="currentColor" size={16} />
+              {state.score} pts
+            </div>
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-sm
+              ${state.timeLeft <= 10 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-700'}`}
+            >
+              <Timer size={15} />
+              00:{state.timeLeft.toString().padStart(2, '0')}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Game Area */}
-      <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-        
-        {/* Left Column: Clue & Input */}
-        <motion.div 
-          className="w-full lg:w-[450px] flex flex-col gap-6"
-          animate={lastAnswerStatus === 'wrong' ? { x: [-10, 10, -10, 10, 0] } : {}}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="flex-1 min-h-[250px]">
-             <CluePanel clue={question.clue} difficulty={question.difficulty} />
+      {/* ── Peta full-screen ──────────────────────────────────────── */}
+      <MapView
+        onMapClick={handleMapClick}
+        isClickable={isMapClickable}
+        mapGuess={mapGuess}
+      />
+
+      {/* Render SettingsPage modal */}
+      <SettingsPage 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)}
+        token={state.token}
+        setToken={(t) => dispatch({ type: 'SET_TOKEN', payload: t })}
+        nickname={state.nickname}
+        setNickname={(n) => dispatch({ type: 'SET_NICKNAME', payload: n })}
+      />
+
+      {showHowToPlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setShowHowToPlay(false)}
+          />
+          <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full relative z-10">
+            <h3 className="text-xl font-bold text-slate-800 mb-4">🗺️ Cara Bermain</h3>
+            <ol className="space-y-3 text-sm text-slate-600">
+              <li className="flex gap-3"><span className="font-bold text-primary">1.</span> Baca clue yang diberikan tentang sebuah tempat ikonik</li>
+              <li className="flex gap-3"><span className="font-bold text-primary">2.</span> Tebak lokasinya — sistem akan pilihkan caranya: klik peta, pilih jawaban, atau ketik nama</li>
+              <li className="flex gap-3"><span className="font-bold text-primary">3.</span> Semakin cepat dan tepat, skor makin tinggi</li>
+              <li className="flex gap-3"><span className="font-bold text-primary">4.</span> Selesaikan 5 ronde dan masuk leaderboard!</li>
+            </ol>
+            <button 
+              onClick={() => setShowHowToPlay(false)}
+              className="w-full mt-6 bg-primary text-white font-bold py-3 rounded-xl"
+            >
+              Mengerti!
+            </button>
           </div>
-          
-          <div className="relative">
-            <AnswerInput 
-              choices={question.choices} 
-              onSubmit={handleSubmit}
-              disabled={!state.timerActive}
-              mapGuess={mapGuess}
-            />
-
-            {/* Answer Overlay */}
-            <AnimatePresence>
-              {!state.timerActive && lastAnswerStatus && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-2xl z-20 flex flex-col items-center justify-center p-6 text-center shadow-lg border border-slate-100"
-                >
-                  {lastAnswerStatus === 'correct' ? (
-                    <>
-                      <div className="text-5xl mb-2">🎉</div>
-                      <h3 className="text-2xl font-bold text-green-600 mb-1">BENAR!</h3>
-                      <p className="text-slate-600 font-medium mb-4">Itu adalah <span className="font-bold text-dark">{question.answer}</span></p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-5xl mb-2">😢</div>
-                      <h3 className="text-2xl font-bold text-red-600 mb-1">SALAH / WAKTU HABIS</h3>
-                      <p className="text-slate-600 font-medium mb-4">Jawaban yang benar: <span className="font-bold text-dark">{question.answer}</span></p>
-                    </>
-                  )}
-                  
-                  <div className="bg-blue-50 text-blue-800 p-4 rounded-xl text-sm text-left w-full mb-6 flex gap-3 border border-blue-100">
-                    <Info className="shrink-0 mt-0.5" size={18} />
-                    <p><strong>Tahukah Kamu?</strong> {question.fun_fact}</p>
-                  </div>
-
-                  <button 
-                    onClick={handleNextRound}
-                    className="bg-primary hover:bg-primary-dark text-white font-bold py-3 px-8 rounded-xl shadow-[0_4px_0_0_#0F766E] transition-all flex items-center gap-2"
-                  >
-                    {state.round >= state.maxRounds ? 'Lihat Hasil Akhir' : 'Lanjut Ronde Berikutnya'} <ArrowRight size={18} />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-
-        {/* Right Column: Map */}
-        <div className="flex-1 min-h-[400px] lg:min-h-0">
-           <MapView onMapClick={(pos) => setMapGuess(pos)} />
         </div>
+      )}
 
-      </div>
-    </motion.div>
+      {/* ── Modal floating di atas peta ───────────────────────────── */}
+      {question && (
+        <ClueModal
+          question={question}
+          method={state.answerMethod}
+          mapGuess={mapGuess}
+          onSubmit={handleSubmit}
+          onNextRound={handleNextRound}
+          lastAnswerStatus={lastAnswerStatus}
+          timerActive={state.timerActive}
+          round={state.round}
+          maxRounds={state.maxRounds}
+        />
+      )}
+    </div>
   );
 };
 

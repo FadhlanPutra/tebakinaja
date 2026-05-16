@@ -5,6 +5,13 @@ import { generateGameClue } from '../services/geminiService';
 import confetti from 'canvas-confetti';
 import Fuse from 'fuse.js';
 
+const pickMethod = () => {
+  const rand = Math.random();
+  if (rand < 0.40) return 'MAP';
+  if (rand < 0.75) return 'MCQ';
+  return 'TEXT';
+};
+
 const pickDifficulty = () => {
   const rand = Math.random();
   if (rand < 0.40) return 'easy';
@@ -12,11 +19,29 @@ const pickDifficulty = () => {
   return 'hard';
 };
 
-const MAX_MAP_SCORE = 500;
-const DECAY_FACTOR = 10; // dalam km
+const DIFFICULTY_CONFIG = {
+  easy:   { radius: 3,  wrongThreshold: 6  },
+  medium: { radius: 7,  wrongThreshold: 14 },
+  hard:   { radius: 12, wrongThreshold: 24 },
+};
 
-const calculateMapScore = (distanceKm) => {
-  return Math.round(MAX_MAP_SCORE * Math.exp(-distanceKm / DECAY_FACTOR));
+// Hitung skor MAP berdasarkan jarak dan radius difficulty
+const calculateMapScore = (distanceKm, radiusKm) => {
+  const ratio = distanceKm / radiusKm;
+  return Math.round(500 * Math.exp(-ratio * 2));
+};
+
+// Offset koordinat secara acak sejauh 0.5-1.5 km ke arah acak
+// Dipakai untuk geser tengah lingkaran agar tidak tepat di jawaban
+const offsetCoordinate = (lat, lng, minKm = 0.5, maxKm = 1.5) => {
+  const distanceKm = minKm + Math.random() * (maxKm - minKm);
+  const angle = Math.random() * 2 * Math.PI;
+  const deltaLat = (distanceKm / 111) * Math.cos(angle);
+  const deltaLng = (distanceKm / (111 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
+  return {
+    lat: lat + deltaLat,
+    lng: lng + deltaLng,
+  };
 };
 
 // Helper function for Haversine distance
@@ -59,7 +84,7 @@ export const useGameLogic = () => {
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const places = await fetchPlacesByCity(city, state.mapInstance);
+      const places = await fetchPlacesByCity(city);
       if (places.length < state.maxRounds) {
         throw new Error("Tidak menemukan cukup landmark di kota ini.");
       }
@@ -79,17 +104,32 @@ export const useGameLogic = () => {
       const targetPlace = availablePlaces[Math.floor(Math.random() * availablePlaces.length)];
       const desiredDifficulty = pickDifficulty();
       
+      // biarkan model langsung memutuskan difficult game sudah sesuai (lebih cepat)
       let questionData = await generateGameClue(targetPlace, placesList);
       let attempts = 1;
       
-      while (questionData.difficulty !== desiredDifficulty && attempts < 2) {
-        questionData = await generateGameClue(targetPlace, placesList);
-        attempts++;
-      }
+      // biarkan model cek ulang pertanyaan difficult sudah sesuai atau belum (lebih akurat tapi lambat)
+      // while (questionData.difficulty !== desiredDifficulty && attempts < 2) {
+      //   questionData = await generateGameClue(targetPlace, placesList);
+      //   attempts++;
+      // }
       
       dispatch({ 
         type: 'SET_QUESTION', 
-        payload: { question: questionData, placeName: targetPlace.name } 
+        payload: { question: questionData, placeName: targetPlace.name, method: pickMethod() } 
+      });
+
+      // Set lingkaran radius dengan tengah yang sudah di-offset
+      const difficulty = questionData.difficulty || 'medium';
+      const config = DIFFICULTY_CONFIG[difficulty];
+      const offsetCenter = offsetCoordinate(targetPlace.lat, targetPlace.lng);
+
+      dispatch({
+        type: 'SET_CIRCLE',
+        payload: {
+          center: offsetCenter,
+          radius: config.radius * 1000, // convert km ke meter untuk Google Maps Circle
+        }
       });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
@@ -106,21 +146,103 @@ export const useGameLogic = () => {
     let points = 0;
     let distanceInfo = null;
 
+    // if (method === 'TEXT') {
+    //   const acceptedAnswers = state.currentQuestion.accepted_answers || [state.currentQuestion.answer];
+    //   const fuse = new Fuse(acceptedAnswers, { threshold: 0.35 });
+    //   const result = fuse.search(data.trim());
+    //   isCorrect = result.length > 0;
+    //   if (isCorrect) points = 100 + (state.timeLeft * 2);
+    // } else if (method === 'MCQ') {
+    //   isCorrect = data === state.currentQuestion.answer;
+    //   if (isCorrect) points = 100 + (state.timeLeft * 2);
+    // } else if (method === 'MAP') {
+    //   const { lat, lng } = data;
+    //   const distance = getDistanceFromLatLonInKm(lat, lng, state.currentQuestion.lat, state.currentQuestion.lng);
+    //   isCorrect = true;
+    //   points = calculateMapScore(distance);
+    //   distanceInfo = distance.toFixed(1);
+    // }
+
     if (method === 'TEXT') {
-      const acceptedAnswers = state.currentQuestion.accepted_answers || [state.currentQuestion.answer];
-      const fuse = new Fuse(acceptedAnswers, { threshold: 0.35 });
-      const result = fuse.search(data.trim());
-      isCorrect = result.length > 0;
-      if (isCorrect) points = 100 + (state.timeLeft * 2);
+      const acceptedAnswers = state.currentQuestion.accepted_answers || 
+                              [state.currentQuestion.answer];
+      const userInput = data.trim().toLowerCase();
+
+      // Minimum panjang input
+      const shortestAnswer = acceptedAnswers.reduce((a, b) => 
+        a.length < b.length ? a : b
+      );
+      const minLength = Math.max(4, Math.floor(shortestAnswer.length * 0.4));
+
+      if (userInput.length < minLength) {
+        // Terlalu pendek → 0 poin, salah
+        isCorrect = false;
+        points = 0;
+      } else {
+        // Cek exact/fuzzy match dulu
+        const fuse = new Fuse(acceptedAnswers, { 
+          threshold: 0.3,
+          minMatchCharLength: 4,
+          ignoreLocation: true,
+        });
+        const exactResult = fuse.search(userInput);
+
+        if (exactResult.length > 0) {
+          // Match bagus → poin penuh
+          isCorrect = true;
+          points = 100 + (state.timeLeft * 2);
+        } else {
+          // Cek partial match dengan threshold lebih longgar
+          const fusePartial = new Fuse(acceptedAnswers, { 
+            threshold: 0.6,
+            minMatchCharLength: 3,
+            ignoreLocation: true,
+          });
+          const partialResult = fusePartial.search(userInput);
+
+          if (partialResult.length > 0) {
+            const shortestAccepted = acceptedAnswers.reduce((a, b) => 
+              a.length < b.length ? a : b
+            );
+
+            const lengthRatio = userInput.length / shortestAccepted.length;
+
+            if (lengthRatio < 0.4) {
+              isCorrect = false;
+              points = 0;
+            } else if (lengthRatio < 0.6) {
+              isCorrect = true;
+              points = 20;
+            } else {
+              isCorrect = true;
+              points = 40;
+            }
+          }
+        }
+      }
     } else if (method === 'MCQ') {
       isCorrect = data === state.currentQuestion.answer;
       if (isCorrect) points = 100 + (state.timeLeft * 2);
     } else if (method === 'MAP') {
       const { lat, lng } = data;
-      const distance = getDistanceFromLatLonInKm(lat, lng, state.currentQuestion.lat, state.currentQuestion.lng);
-      isCorrect = true;
-      points = calculateMapScore(distance);
-      distanceInfo = distance.toFixed(1);
+      const answerLat = state.currentQuestion.lat;
+      const answerLng = state.currentQuestion.lng;
+      const difficulty = state.currentQuestion.difficulty || 'medium';
+      const config = DIFFICULTY_CONFIG[difficulty];
+
+      const distance = getDistanceFromLatLonInKm(lat, lng, answerLat, answerLng);
+
+      if (distance > config.wrongThreshold) {
+        // Di luar batas threshold → salah
+        isCorrect = false;
+        points = 0;
+        distanceInfo = distance.toFixed(1);
+      } else {
+        // Dalam threshold → benar, hitung poin berdasarkan jarak
+        isCorrect = true;
+        points = calculateMapScore(distance, config.radius);
+        distanceInfo = distance.toFixed(1);
+      }
     }
 
     handleResult(isCorrect, method, points, distanceInfo);
@@ -151,8 +273,12 @@ export const useGameLogic = () => {
     }
 
     let finalFact = state.currentQuestion.fun_fact;
-    if (distanceInfo) {
-      finalFact += `\n\nTebakanmu berjarak ${distanceInfo} km dari lokasi sebenarnya.`;
+    if (distanceInfo !== null && method === 'MAP') {
+      if (isCorrect) {
+        finalFact += `\n\nTebakanmu berjarak ${distanceInfo} km dari lokasi sebenarnya.`;
+      } else {
+        finalFact += `\n\nTebakanmu berjarak ${distanceInfo} km — terlalu jauh dari lokasi sebenarnya.`;
+      }
     }
 
     dispatch({

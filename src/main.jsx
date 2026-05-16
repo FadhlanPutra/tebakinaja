@@ -8,9 +8,10 @@ const PROVIDER = import.meta.env.VITE_OAUTH_PROVIDER || 'firebase';
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 const AppTree = (
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  // <React.StrictMode>
+  //   <App />
+  // </React.StrictMode>
+  < App />
 );
 
 ReactDOM.createRoot(document.getElementById('root')).render(

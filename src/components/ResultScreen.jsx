@@ -1,15 +1,19 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useGameLogic } from '../hooks/useGameLogic';
+// import { useGameLogic } from '../hooks/useGameLogic';
 import { Trophy, RotateCcw, CheckCircle, XCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { saveScore, updateUserStats } from '../services/firebaseService';
 import { useRef } from 'react';
 import { updateUserData, getUserData } from '../services/tokenService';
 import { increment } from 'firebase/firestore';
+import { useContext } from 'react';
+import { GameContext } from '../context/GameContext';
 
 const ResultScreen = () => {
-  const { state, resetGame } = useGameLogic();
+  // const { state, resetGame } = useGameLogic();
+  const { state, dispatch } = useContext(GameContext);
+  const resetGame = () => dispatch({ type: 'RESET_GAME' });
   const scoreSaved = useRef(false);
 
   useEffect(() => {

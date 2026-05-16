@@ -5,8 +5,11 @@ const initialState = {
   screen: 'HOME',
   token: null,
   googleUser: null,
+  showClueModal: true,
+  answerMethod: 'MCQ',
   total_answers: 0,
   correct_answers: 0,
+  lastRoundPoints: 0,
   nickname: localStorage.getItem('tebakinaja_nickname') || '',
   city: '',
   placesList: [],
@@ -21,7 +24,9 @@ const initialState = {
   isLoading: false,
   loadingMessage: '',
   error: null,
-  mapInstance: null
+  mapInstance: null,
+  circleCenter: null,   // { lat, lng } — tengah lingkaran yang sudah di-offset
+  circleRadius: 3000,   // dalam meter, default easy
 };
 
 const gameReducer = (state, action) => {
@@ -30,6 +35,8 @@ const gameReducer = (state, action) => {
       return { ...state, token: action.payload };
     case 'SET_GOOGLE_USER':
       return { ...state, googleUser: action.payload };
+    case 'TOGGLE_CLUE_MODAL':
+      return { ...state, showClueModal: action.payload };
     case 'UPDATE_ACCURACY':
       return {
         ...state,
@@ -50,9 +57,9 @@ const gameReducer = (state, action) => {
     case 'SET_MAP_INSTANCE':
       return { ...state, mapInstance: action.payload };
     case 'START_GAME':
-      return { 
-        ...state, 
-        placesList: action.payload.placesList, 
+      return {
+        ...state,
+        placesList: action.payload.placesList,
         screen: 'GAME',
         round: 1,
         score: 0,
@@ -65,8 +72,19 @@ const gameReducer = (state, action) => {
         ...state,
         currentQuestion: action.payload.question,
         playedPlaces: [...state.playedPlaces, action.payload.placeName],
+        answerMethod: action.payload.method || 'MCQ',
+        showClueModal: true,
+        lastRoundPoints: 0,
+        circleCenter: null,   // reset setiap ronde baru
+        circleRadius: 3000,
         timeLeft: 60,
-        timerActive: true
+        timerActive: true,
+      };
+    case 'SET_CIRCLE':
+      return {
+        ...state,
+        circleCenter: action.payload.center,
+        circleRadius: action.payload.radius,
       };
     case 'TICK_TIMER':
       return { ...state, timeLeft: Math.max(0, state.timeLeft - 1) };
@@ -76,6 +94,7 @@ const gameReducer = (state, action) => {
       return {
         ...state,
         score: state.score + action.payload.points,
+        lastRoundPoints: action.payload.points,
         funFacts: [...state.funFacts, action.payload.factData],
         timerActive: false
       };
@@ -84,13 +103,13 @@ const gameReducer = (state, action) => {
     case 'END_GAME':
       return { ...state, screen: 'RESULT', timerActive: false };
     case 'RESET_GAME':
-      return { 
-        ...initialState, 
-        nickname: state.nickname, 
+      return {
+        ...initialState,
+        nickname: state.nickname,
         mapInstance: state.mapInstance,
         token: state.token,
         googleUser: state.googleUser
-      }; 
+      };
     default:
       return state;
   }

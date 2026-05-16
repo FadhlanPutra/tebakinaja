@@ -6,11 +6,13 @@ import CitySelection from './components/CitySelection';
 import GameScreen from './components/GameScreen';
 import ResultScreen from './components/ResultScreen';
 import { AnimatePresence } from 'framer-motion';
+import { useGameLogic } from './hooks/useGameLogic';
 
 const libraries = ['places'];
 
 const MainApp = () => {
-  const { state } = useContext(GameContext);
+  const { state, startGame, submitAnswer, nextRound, resetGame } = useGameLogic();
+  
 
   // Load Google Maps API at the root level
   const { isLoaded, loadError } = useJsApiLoader({
@@ -42,9 +44,12 @@ const MainApp = () => {
     <main className="w-full min-h-screen relative overflow-hidden bg-light">
       <AnimatePresence mode="wait">
         {state.screen === 'HOME' && <LandingPage key="home" />}
-        {state.screen === 'CITY_SELECTION' && <CitySelection key="city_selection" />}
-        {state.screen === 'GAME' && <GameScreen key="game" />}
-        {state.screen === 'RESULT' && <ResultScreen key="result" />}
+        {state.screen === 'CITY_SELECTION' && 
+          <CitySelection key="city_selection" startGame={startGame} />}
+        {state.screen === 'GAME' && 
+          <GameScreen key="game" submitAnswer={submitAnswer} nextRound={nextRound} />}
+        {state.screen === 'RESULT' && 
+          <ResultScreen key="result" />}
       </AnimatePresence>
     </main>
   );

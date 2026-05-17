@@ -2,6 +2,13 @@ import { useContext, useEffect, useRef } from 'react';
 import { GameContext } from '../context/GameContext';
 import { fetchPlacesByCity } from '../services/placesService';
 import { generateGameClue } from '../services/geminiService';
+import { 
+  saveCluesToCache, 
+  getClueFromCache, 
+  deleteSessionCache,
+  cleanupOldCache,
+  generateSessionId 
+} from '../services/clueCacheService';
 import confetti from 'canvas-confetti';
 import Fuse from 'fuse.js';
 
@@ -20,9 +27,9 @@ const pickDifficulty = () => {
 };
 
 const DIFFICULTY_CONFIG = {
-  easy:   { radius: 3,  wrongThreshold: 6  },
-  medium: { radius: 7,  wrongThreshold: 14 },
-  hard:   { radius: 12, wrongThreshold: 24 },
+  easy:   { preciseThreshold: 0.2, radius: 3,  wrongThreshold: 6  },
+  medium: { preciseThreshold: 0.5, radius: 7,  wrongThreshold: 14 },
+  hard:   { preciseThreshold: 1.0, radius: 12, wrongThreshold: 24 },
 };
 
 // Hitung skor MAP berdasarkan jarak dan radius difficulty
@@ -84,39 +91,128 @@ export const useGameLogic = () => {
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
+      // Cleanup cache lama saat memulai game baru
+      cleanupOldCache(); // tidak perlu await, biarkan jalan di background
+
       const places = await fetchPlacesByCity(city);
       if (places.length < state.maxRounds) {
         throw new Error("Tidak menemukan cukup landmark di kota ini.");
       }
+
+      // Generate session ID baru untuk game ini
+      const sessionId = generateSessionId(state.token || 'guest');
+      dispatch({ type: 'SET_SESSION_ID', payload: sessionId });
+
       dispatch({ type: 'START_GAME', payload: { placesList: places } });
-      await prepareNextRound(places, []);
+
+      // Fetch clue ronde 1 langsung — tampilkan secepat mungkin
+      await prepareNextRound(places, [], sessionId, 1);
+
+      // Background fetch clue ronde 2-5 sekaligus dalam 1 batch
+      prefetchRemainingClues(places, [places[0]?.name], sessionId);
+
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
   };
 
-  const prepareNextRound = async (placesList = state.placesList, playedPlaces = state.playedPlaces) => {
+  /**
+   * Fetch clue ronde 2-5 di background dalam 1 batch Gemini
+   * Hasilnya disimpan ke Firestore cache
+   */
+  const prefetchRemainingClues = async (placesList, playedPlaces, sessionId) => {
+    try {
+      const remainingRounds = [2, 3, 4, 5];
+      const clues = {};
+      let currentPlayed = [...playedPlaces];
+
+      // Generate semua clue ronde 2-5 secara paralel
+      const cluePromises = remainingRounds.map(async (round) => {
+        const availablePlaces = placesList.filter(p => !currentPlayed.includes(p.name));
+        if (availablePlaces.length === 0) return null;
+
+        const targetPlace = availablePlaces[Math.floor(Math.random() * availablePlaces.length)];
+        currentPlayed.push(targetPlace.name);
+
+        const clueData = await generateGameClue(targetPlace, placesList);
+        return { round, clueData, placeName: targetPlace.name };
+      });
+
+      const results = await Promise.all(cluePromises);
+
+      results.forEach((result) => {
+        if (result) {
+          clues[result.round.toString()] = {
+            ...result.clueData,
+            placeName: result.placeName,
+            method: pickMethod(),
+          };
+        }
+      });
+
+      // Simpan semua ke Firestore cache sekaligus
+      await saveCluesToCache(sessionId, clues);
+      console.log('[GameLogic] Background prefetch complete');
+
+    } catch (error) {
+      console.error('[GameLogic] Background prefetch failed:', error);
+      // Tidak crash — kalau prefetch gagal, ronde berikutnya akan fetch langsung
+    }
+  };
+
+  const prepareNextRound = async (
+    placesList = state.placesList,
+    playedPlaces = state.playedPlaces,
+    sessionId = state.sessionId,
+    round = state.round
+  ) => {
     dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Menyiapkan pertanyaan...` } });
     
     try {
-      // Pick random place not played yet
+      // Ronde 2-5: coba ambil dari cache dulu
+      if (round > 1 && sessionId) {
+        const cachedClue = await getClueFromCache(sessionId, round);
+
+        if (cachedClue) {
+          console.log(`[GameLogic] Cache hit untuk ronde ${round}`);
+          dispatch({
+            type: 'SET_QUESTION',
+            payload: {
+              question: cachedClue,
+              placeName: cachedClue.placeName,
+              method: cachedClue.method || pickMethod(),
+            }
+          });
+
+          // Set circle untuk MAP mode
+          if (cachedClue.difficulty) {
+            const config = DIFFICULTY_CONFIG[cachedClue.difficulty];
+            const offsetCenter = offsetCoordinate(cachedClue.lat, cachedClue.lng);
+            dispatch({
+              type: 'SET_CIRCLE',
+              payload: {
+                center: offsetCenter,
+                radius: config.radius * 1000,
+              }
+            });
+          }
+
+          return; // Selesai, tidak perlu fetch ke Gemini
+        }
+
+        console.log(`[GameLogic] Cache miss untuk ronde ${round}, fetch ke Gemini...`);
+      }
+
+      // Ronde 1 atau cache miss → fetch langsung ke Gemini
       const availablePlaces = placesList.filter(p => !playedPlaces.includes(p.name));
       const targetPlace = availablePlaces[Math.floor(Math.random() * availablePlaces.length)];
-      const desiredDifficulty = pickDifficulty();
-      
-      // biarkan model langsung memutuskan difficult game sudah sesuai (lebih cepat)
-      let questionData = await generateGameClue(targetPlace, placesList);
-      let attempts = 1;
-      
-      // biarkan model cek ulang pertanyaan difficult sudah sesuai atau belum (lebih akurat tapi lambat)
-      // while (questionData.difficulty !== desiredDifficulty && attempts < 2) {
-      //   questionData = await generateGameClue(targetPlace, placesList);
-      //   attempts++;
-      // }
-      
+
+      const questionData = await generateGameClue(targetPlace, placesList);
+      const method = pickMethod();
+
       dispatch({ 
         type: 'SET_QUESTION', 
-        payload: { question: questionData, placeName: targetPlace.name, method: pickMethod() } 
+        payload: { question: questionData, placeName: targetPlace.name, method }
       });
 
       // Set lingkaran radius dengan tengah yang sudah di-offset
@@ -128,7 +224,7 @@ export const useGameLogic = () => {
         type: 'SET_CIRCLE',
         payload: {
           center: offsetCenter,
-          radius: config.radius * 1000, // convert km ke meter untuk Google Maps Circle
+          radius: config.radius * 1000,
         }
       });
     } catch (error) {
@@ -139,12 +235,14 @@ export const useGameLogic = () => {
   };
 
   const submitAnswer = (method, data) => {
-    if (!state.timerActive || !state.currentQuestion) return;
+    if (!state.timerActive || !state.currentQuestion) return { isCorrect: false, mapResultStatus: null, textResultStatus: null };
     dispatch({ type: 'STOP_TIMER' });
 
     let isCorrect = false;
     let points = 0;
     let distanceInfo = null;
+    let mapResultStatus = null;
+    let textResultStatus = null;
 
     // if (method === 'TEXT') {
     //   const acceptedAnswers = state.currentQuestion.accepted_answers || [state.currentQuestion.answer];
@@ -164,23 +262,21 @@ export const useGameLogic = () => {
     // }
 
     if (method === 'TEXT') {
-      const acceptedAnswers = state.currentQuestion.accepted_answers || 
+      const acceptedAnswers = state.currentQuestion.accepted_answers ||
                               [state.currentQuestion.answer];
       const userInput = data.trim().toLowerCase();
 
-      // Minimum panjang input
-      const shortestAnswer = acceptedAnswers.reduce((a, b) => 
+      const shortestAnswer = acceptedAnswers.reduce((a, b) =>
         a.length < b.length ? a : b
       );
       const minLength = Math.max(4, Math.floor(shortestAnswer.length * 0.4));
 
       if (userInput.length < minLength) {
-        // Terlalu pendek → 0 poin, salah
         isCorrect = false;
         points = 0;
+        textResultStatus = 'wrong';
       } else {
-        // Cek exact/fuzzy match dulu
-        const fuse = new Fuse(acceptedAnswers, { 
+        const fuse = new Fuse(acceptedAnswers, {
           threshold: 0.3,
           minMatchCharLength: 4,
           ignoreLocation: true,
@@ -188,12 +284,11 @@ export const useGameLogic = () => {
         const exactResult = fuse.search(userInput);
 
         if (exactResult.length > 0) {
-          // Match bagus → poin penuh
           isCorrect = true;
           points = 100 + (state.timeLeft * 2);
+          textResultStatus = 'correct';
         } else {
-          // Cek partial match dengan threshold lebih longgar
-          const fusePartial = new Fuse(acceptedAnswers, { 
+          const fusePartial = new Fuse(acceptedAnswers, {
             threshold: 0.6,
             minMatchCharLength: 3,
             ignoreLocation: true,
@@ -201,22 +296,25 @@ export const useGameLogic = () => {
           const partialResult = fusePartial.search(userInput);
 
           if (partialResult.length > 0) {
-            const shortestAccepted = acceptedAnswers.reduce((a, b) => 
-              a.length < b.length ? a : b
-            );
-
-            const lengthRatio = userInput.length / shortestAccepted.length;
+            const lengthRatio = userInput.length / shortestAnswer.length;
 
             if (lengthRatio < 0.4) {
               isCorrect = false;
               points = 0;
+              textResultStatus = 'wrong';
             } else if (lengthRatio < 0.6) {
               isCorrect = true;
-              points = 20;
+              points = Math.round((100 + (state.timeLeft * 2)) * 0.3);
+              textResultStatus = 'almost';
             } else {
               isCorrect = true;
-              points = 40;
+              points = Math.round((100 + (state.timeLeft * 2)) * 0.5);
+              textResultStatus = 'almost';
             }
+          } else {
+            isCorrect = false;
+            points = 0;
+            textResultStatus = 'wrong';
           }
         }
       }
@@ -229,24 +327,34 @@ export const useGameLogic = () => {
       const answerLng = state.currentQuestion.lng;
       const difficulty = state.currentQuestion.difficulty || 'medium';
       const config = DIFFICULTY_CONFIG[difficulty];
-
       const distance = getDistanceFromLatLonInKm(lat, lng, answerLat, answerLng);
+      distanceInfo = distance.toFixed(1);
 
-      if (distance > config.wrongThreshold) {
-        // Di luar batas threshold → salah
-        isCorrect = false;
-        points = 0;
-        distanceInfo = distance.toFixed(1);
-      } else {
-        // Dalam threshold → benar, hitung poin berdasarkan jarak
+      if (distance <= config.preciseThreshold) {
+        // Tepat sasaran → benar penuh
         isCorrect = true;
-        points = calculateMapScore(distance, config.radius);
-        distanceInfo = distance.toFixed(1);
+        mapResultStatus = 'correct';
+        points = 100 + (state.timeLeft * 2);
+      } else if (distance <= config.radius) {
+        // Dalam radius tapi tidak presisi → hampir benar
+        isCorrect = true;
+        mapResultStatus = 'almost';
+        points = Math.round((100 + (state.timeLeft * 2)) * 0.5);
+      } else if (distance <= config.wrongThreshold) {
+        // Di luar radius tapi masih dalam threshold → hampir benar tapi sedikit
+        isCorrect = true;
+        mapResultStatus = 'almost';
+        points = Math.round((100 + (state.timeLeft * 2)) * 0.3);
+      } else {
+        // Terlalu jauh → salah
+        isCorrect = false;
+        mapResultStatus = 'wrong';
+        points = 0;
       }
     }
 
-    handleResult(isCorrect, method, points, distanceInfo);
-    return isCorrect;
+    handleResult(isCorrect, method, points, distanceInfo, mapResultStatus);
+    return { isCorrect, mapResultStatus: mapResultStatus || null, textResultStatus: textResultStatus || null };
   };
 
   const handleTimeUp = () => {
@@ -254,7 +362,7 @@ export const useGameLogic = () => {
     handleResult(false, 'TIME_UP', 0, null);
   };
 
-  const handleResult = (isCorrect, method, points = 0, distanceInfo = null) => {
+  const handleResult = (isCorrect, method, points = 0, distanceInfo = null, mapResultStatus = null) => {
     dispatch({
       type: 'UPDATE_ACCURACY',
       payload: {
@@ -289,7 +397,8 @@ export const useGameLogic = () => {
           name: state.currentQuestion.answer,
           fact: finalFact,
           correct: isCorrect,
-          method
+          method,
+          mapResultStatus: mapResultStatus || null,
         }
       }
     });
@@ -297,10 +406,19 @@ export const useGameLogic = () => {
 
   const nextRound = async () => {
     if (state.round >= state.maxRounds) {
+      // Game selesai — hapus cache sesi ini
+      if (state.sessionId) {
+        deleteSessionCache(state.sessionId);
+      }
       dispatch({ type: 'END_GAME' });
     } else {
       dispatch({ type: 'NEXT_ROUND' });
-      await prepareNextRound();
+      await prepareNextRound(
+        state.placesList,
+        state.playedPlaces,
+        state.sessionId,
+        state.round + 1  // ronde berikutnya
+      );
     }
   };
 

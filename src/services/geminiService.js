@@ -39,6 +39,18 @@ ATURAN CLUE:
 - JANGAN sebut nama tempat di clue
 - Buat clue yang fun dan relatable, bukan seperti buku sejarah
 
+Untuk accepted_answers:
+- WAJIB isi dengan variasi nama yang SPESIFIK dan UNIK untuk tempat ini saja
+- JANGAN masukkan kata tunggal yang bersifat generik dan bisa merujuk ke banyak tempat lain
+- Setiap accepted_answer minimal harus terdiri dari 2 kata ATAU merupakan singkatan/akronim yang unik
+- Contoh BENAR untuk "Mall Artha Gading": ["mall artha gading", "artha gading", "MAG"]
+- Contoh SALAH untuk "Mall Artha Gading": ["mall", "artha", "gading", "mal"]
+- Contoh BENAR untuk "Cibinong City Mall": ["cibinong city mall", "CCM", "cibinong mall"]
+- Contoh SALAH untuk "Cibinong City Mall": ["mall", "cibinong", "city mall"]
+- Contoh BENAR untuk "Monumen Nasional": ["monumen nasional", "monas", "tugu monas"]
+- Contoh SALAH untuk "Monumen Nasional": ["monumen", "tugu", "nasional"]
+- Singkatan/akronim yang unik dan dikenal luas tetap boleh meskipun 1 kata (contoh: "monas", "GBK", "TMII")
+
 Respons HANYA JSON murni:
 {
   "clue": "...",

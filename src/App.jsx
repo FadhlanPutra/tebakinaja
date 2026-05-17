@@ -12,6 +12,7 @@ const libraries = ['places'];
 
 const MainApp = () => {
   const { state, startGame, submitAnswer, nextRound, resetGame } = useGameLogic();
+  const { dispatch } = useContext(GameContext);
   
 
   // Load Google Maps API at the root level
@@ -45,7 +46,11 @@ const MainApp = () => {
       <AnimatePresence mode="wait">
         {state.screen === 'HOME' && <LandingPage key="home" />}
         {state.screen === 'CITY_SELECTION' && 
-          <CitySelection key="city_selection" startGame={startGame} />}
+          <CitySelection 
+            key="city_selection" 
+            startGame={startGame}
+            onBack={() => dispatch({ type: 'SET_SCREEN', payload: 'HOME' })}
+          />}
         {state.screen === 'GAME' && 
           <GameScreen key="game" submitAnswer={submitAnswer} nextRound={nextRound} />}
         {state.screen === 'RESULT' && 

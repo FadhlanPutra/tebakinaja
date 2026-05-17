@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 // import { useGameLogic } from '../hooks/useGameLogic';
-import { Trophy, RotateCcw, CheckCircle, XCircle } from 'lucide-react';
+import { Trophy, RotateCcw, CheckCircle, XCircle, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { saveScore, updateUserStats } from '../services/firebaseService';
+import { saveScore, updateUserStats, getLeaderboard } from '../services/firebaseService';
 import { useRef } from 'react';
 import { updateUserData, getUserData } from '../services/tokenService';
 import { increment } from 'firebase/firestore';
@@ -15,6 +15,22 @@ const ResultScreen = () => {
   const { state, dispatch } = useContext(GameContext);
   const resetGame = () => dispatch({ type: 'RESET_GAME' });
   const scoreSaved = useRef(false);
+
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  const fetchLeaderboard = async () => {
+    setLoadingLeaderboard(true);
+    try {
+      const data = await getLeaderboard();
+      setLeaderboard(data);
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err);
+    } finally {
+      setLoadingLeaderboard(false);
+    }
+  };
 
   useEffect(() => {
     if (state.score > 0 && !scoreSaved.current && state.nickname) {
@@ -120,12 +136,84 @@ const ResultScreen = () => {
             ))}
           </div>
 
-          <button 
-            onClick={resetGame}
-            className="w-full bg-secondary hover:bg-secondary-dark text-dark font-extrabold py-4 px-6 rounded-xl shadow-[0_4px_0_0_#D97706] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#D97706] transition-all flex items-center justify-center gap-2 text-lg"
-          >
-            Main Lagi <RotateCcw size={20} />
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={resetGame}
+              className="flex-1 bg-secondary hover:bg-secondary-dark text-dark font-extrabold py-4 px-6 rounded-xl shadow-[0_4px_0_0_#D97706] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#D97706] transition-all flex items-center justify-center gap-2 text-lg"
+            >
+              Main Lagi <RotateCcw size={20} />
+            </button>
+
+            <button
+              onClick={() => {
+                setShowLeaderboard(true);
+                fetchLeaderboard();
+              }}
+              className="flex-1 bg-primary hover:bg-primary-dark text-white font-extrabold py-4 px-6 rounded-xl shadow-[0_4px_0_0_#0F766E] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#0F766E] transition-all flex items-center justify-center gap-2 text-lg"
+            >
+              Leaderboard 🏆
+            </button>
+          </div>
+
+          {showLeaderboard && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                onClick={() => setShowLeaderboard(false)}
+              />
+              <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full relative z-10 max-h-[80vh] flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-slate-800">🏆 Leaderboard Global</h3>
+                  <button
+                    onClick={() => setShowLeaderboard(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {loadingLeaderboard ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : leaderboard.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">Belum ada skor. Jadilah yang pertama!</p>
+                ) : (
+                  <div className="overflow-y-auto flex-1">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-white">
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left py-2 text-slate-500 font-semibold">#</th>
+                          <th className="text-left py-2 text-slate-500 font-semibold">Nama</th>
+                          <th className="text-left py-2 text-slate-500 font-semibold">Kota</th>
+                          <th className="text-right py-2 text-slate-500 font-semibold">Skor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leaderboard.map((entry, idx) => (
+                          <tr
+                            key={idx}
+                            className={`border-b border-slate-50 ${
+                              entry.token === state.token || entry.token === state.googleUser?.uid
+                                ? 'bg-primary-light font-bold text-primary'
+                                : ''
+                            }`}
+                          >
+                            <td className="py-3 text-slate-500">
+                              {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                            </td>
+                            <td className="py-3 text-slate-800">{entry.nickname}</td>
+                            <td className="py-3 text-slate-500">{entry.city}</td>
+                            <td className="py-3 text-right text-primary font-bold">{entry.score}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
       </div>

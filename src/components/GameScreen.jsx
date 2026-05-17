@@ -12,6 +12,8 @@ const GameScreen = ({submitAnswer, nextRound}) => {
   const { state } = useContext(GameContext);
   const [mapGuess, setMapGuess] = useState(null);
   const [lastAnswerStatus, setLastAnswerStatus] = useState(null);
+  const [mapResultStatus, setMapResultStatus] = useState(null);
+  const [textResultStatus, setTextResultStatus] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [lastPoints, setLastPoints] = useState(0);
@@ -27,13 +29,17 @@ const GameScreen = ({submitAnswer, nextRound}) => {
   }, [state.timerActive, question]);
 
   const handleSubmit = (method, data) => {
-    const isCorrect = submitAnswer(method, data);
-    setLastAnswerStatus(isCorrect ? 'correct' : 'wrong');
+    const result = submitAnswer(method, data);
+    setLastAnswerStatus(result.isCorrect ? 'correct' : 'wrong');
+    if (result.mapResultStatus) setMapResultStatus(result.mapResultStatus);
+    if (result.textResultStatus) setTextResultStatus(result.textResultStatus);
     dispatch({ type: 'TOGGLE_CLUE_MODAL', payload: true });
   };
 
   const handleNextRound = () => {
     setLastAnswerStatus(null);
+    setMapResultStatus(null);
+    setTextResultStatus(null);
     setMapGuess(null);
     nextRound();
   };
@@ -146,6 +152,8 @@ const GameScreen = ({submitAnswer, nextRound}) => {
           onSubmit={handleSubmit}
           onNextRound={handleNextRound}
           lastAnswerStatus={lastAnswerStatus}
+          mapResultStatus={mapResultStatus}
+          textResultStatus={textResultStatus}
           timerActive={state.timerActive}
           round={state.round}
           maxRounds={state.maxRounds}

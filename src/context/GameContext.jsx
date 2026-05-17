@@ -27,12 +27,15 @@ const initialState = {
   mapInstance: null,
   circleCenter: null,   // { lat, lng } — tengah lingkaran yang sudah di-offset
   circleRadius: 3000,   // dalam meter, default easy
+  sessionId: null,
 };
 
 const gameReducer = (state, action) => {
   switch (action.type) {
     case 'SET_TOKEN':
       return { ...state, token: action.payload };
+    case 'SET_SESSION_ID':
+      return { ...state, sessionId: action.payload };
     case 'SET_GOOGLE_USER':
       return { ...state, googleUser: action.payload };
     case 'TOGGLE_CLUE_MODAL':

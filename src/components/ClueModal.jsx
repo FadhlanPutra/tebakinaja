@@ -19,6 +19,8 @@ const ClueModal = ({
   onSubmit,
   onNextRound,
   lastAnswerStatus,
+  mapResultStatus,
+  textResultStatus,
   timerActive,
   round,
   maxRounds,
@@ -71,15 +73,66 @@ const ClueModal = ({
             {isResultMode ? (
               <div className="p-6">
                 <div className="text-center mb-4">
-                  {lastAnswerStatus === 'correct' && (
+                  {/* TEXT mode — benar */}
+                  {lastAnswerStatus === 'correct' && method === 'TEXT' && textResultStatus === 'correct' && (
                     <>
                       <div className="text-5xl mb-2">🎉</div>
                       <h3 className="text-2xl font-bold text-green-600">BENAR!</h3>
+                      <p className="text-slate-600 mt-1">Itu adalah <span className="font-bold">{question.answer}</span></p>
+                      <div className="mt-3 inline-flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded-full font-bold">
+                        +{state.lastRoundPoints || 0} pts ⭐
+                      </div>
+                    </>
+                  )}
+
+                  {/* TEXT mode — hampir benar */}
+                  {lastAnswerStatus === 'correct' && method === 'TEXT' && textResultStatus === 'almost' && (
+                    <>
+                      <div className="text-5xl mb-2">📝</div>
+                      <h3 className="text-2xl font-bold text-orange-500">HAMPIR TEPAT!</h3>
+                      <p className="text-slate-600 mt-1">
+                        Jawaban lengkapnya: <span className="font-bold">{question.answer}</span>
+                      </p>
+                      <div className="mt-3 inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-2 rounded-full font-bold">
+                        +{state.lastRoundPoints || 0} pts 📝
+                      </div>
+                    </>
+                  )}
+
+                  {/* MCQ mode — benar */}
+                  {lastAnswerStatus === 'correct' && method === 'MCQ' && (
+                    <>
+                      <div className="text-5xl mb-2">🎉</div>
+                      <h3 className="text-2xl font-bold text-green-600">BENAR!</h3>
+                      <p className="text-slate-600 mt-1">Itu adalah <span className="font-bold">{question.answer}</span></p>
+                      <div className="mt-3 inline-flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded-full font-bold">
+                        +{state.lastRoundPoints || 0} pts ⭐
+                      </div>
+                    </>
+                  )}
+
+                  {lastAnswerStatus === 'correct' && method === 'MAP' && mapResultStatus === 'correct' && (
+                    <>
+                      <div className="text-5xl mb-2">🎯</div>
+                      <h3 className="text-2xl font-bold text-green-600">TEPAT SASARAN!</h3>
                       <p className="text-slate-600 font-medium mt-1">
                         Itu adalah <span className="font-bold">{question.answer}</span>
                       </p>
                       <div className="mt-3 inline-flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded-full font-bold text-lg">
                         +{state.lastRoundPoints || 0} pts ⭐
+                      </div>
+                    </>
+                  )}
+
+                  {lastAnswerStatus === 'correct' && method === 'MAP' && mapResultStatus === 'almost' && (
+                    <>
+                      <div className="text-5xl mb-2">📍</div>
+                      <h3 className="text-2xl font-bold text-orange-500">HAMPIR TEPAT!</h3>
+                      <p className="text-slate-600 font-medium mt-1">
+                        Itu adalah <span className="font-bold">{question.answer}</span>
+                      </p>
+                      <div className="mt-3 inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-2 rounded-full font-bold text-lg">
+                        +{state.lastRoundPoints || 0} pts 📍
                       </div>
                     </>
                   )}

@@ -1,6 +1,6 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Play } from 'lucide-react';
+import { ArrowLeft, MapPin, Play } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 
 const cities = [
@@ -19,9 +19,25 @@ const cities = [
   'Jayapura',
 ];
 
-const CitySelection = ({ startGame }) => {
+const CitySelection = ({ startGame, onBack }) => {
   const { state } = useContext(GameContext);
   const [selectedCity, setSelectedCity] = useState('Jakarta');
+  const [search, setSearch] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const filteredCities = cities.filter(city =>
+    city.toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.relative')) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <motion.div
@@ -33,6 +49,13 @@ const CitySelection = ({ startGame }) => {
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #0D9488 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
 
       <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full relative z-10 border border-slate-100">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-700 font-semibold text-sm mb-6 transition-colors"
+        >
+          <ArrowLeft size={16} /> Kembali ke Beranda
+        </button>
+
         <div className="flex justify-center mb-6">
           <div className="bg-primary-light p-4 rounded-full">
             <MapPin size={48} className="text-primary" />
@@ -48,23 +71,65 @@ const CitySelection = ({ startGame }) => {
 
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Pilih Kota Destinasi</label>
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              Pilih Kota Destinasi
+            </label>
             <div className="relative">
-              <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
-                className="w-full appearance-none bg-slate-50 border-2 border-slate-200 text-slate-700 py-3 px-4 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-primary transition-colors font-semibold"
-              >
-                {cities.map(city => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-700">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                </svg>
-              </div>
+              {/* Search input */}
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && filteredCities.length > 0) {
+                    setSelectedCity(filteredCities[0]);
+                    setSearch(filteredCities[0]);
+                    setIsDropdownOpen(false);
+                  }
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                placeholder="Cari kota..."
+                className="w-full bg-slate-50 border-2 border-slate-200 text-slate-700 py-3 px-4 rounded-xl focus:outline-none focus:bg-white focus:border-primary transition-colors font-semibold"
+              />
+
+              {/* Dropdown hasil search */}
+              {isDropdownOpen && filteredCities.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {filteredCities.map(city => (
+                    <button
+                      key={city}
+                      onClick={() => {
+                        setSelectedCity(city);
+                        setSearch(city);
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition-colors
+                        ${selectedCity === city ? 'text-primary bg-primary-light' : 'text-slate-700'}
+                      `}
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Kalau search tidak ketemu */}
+              {isDropdownOpen && search && filteredCities.length === 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-4 text-sm text-slate-500 text-center">
+                  Kota tidak ditemukan
+                </div>
+              )}
             </div>
+
+            {/* Kota yang dipilih */}
+            {selectedCity && (
+              <p className="text-xs text-slate-500 mt-2">
+                Kota dipilih: <span className="font-bold text-primary">{selectedCity}</span>
+              </p>
+            )}
           </div>
 
           {state.error && (

@@ -12,7 +12,26 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Build the app for production
+# --- TAMBAHKAN BAGIAN INI UNTUK MENANGKAP ENV SAAT DEPLOY ---
+ARG VITE_GOOGLE_MAPS_API_KEY
+ARG VITE_GEMINI_API_KEY
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_OAUTH_PROVIDER
+ARG VITE_GOOGLE_CLIENT_ID
+
+# Daftarkan ke environment sistem agar dibaca oleh Vite
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY \
+    VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY \
+    VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
+    VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN \
+    VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID \
+    VITE_OAUTH_PROVIDER=$VITE_OAUTH_PROVIDER \
+    VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+# ------------------------------------------------------------
+
+# Build the app for production (Sekarang Vite sudah bisa membaca semua API Key!)
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx
@@ -20,9 +39,6 @@ FROM nginx:alpine
 
 # Copy the built assets from the build stage
 COPY --from=build /app/dist /usr/share/nginx/html
-
-# Copy custom nginx configuration if needed (optional)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 8080 (Cloud Run default)
 EXPOSE 8080

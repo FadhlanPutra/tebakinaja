@@ -7,6 +7,10 @@ steps:
       - '--build-arg'
       - 'VITE_GEMINI_API_KEY=${_VITE_GEMINI_API_KEY}'
       - '--build-arg'
+      - 'VITE_BACKEND_URL=${_VITE_BACKEND_URL}'
+      - '--build-arg'
+      - 'VITE_APP_SECRET_TOKEN=${_VITE_APP_SECRET_TOKEN}'
+      - '--build-arg'
       - 'VITE_FIREBASE_API_KEY=${_VITE_FIREBASE_API_KEY}'
       - '--build-arg'
       - 'VITE_FIREBASE_AUTH_DOMAIN=${_VITE_FIREBASE_AUTH_DOMAIN}'
@@ -16,6 +20,10 @@ steps:
       - 'VITE_OAUTH_PROVIDER=${_VITE_OAUTH_PROVIDER}'
       - '--build-arg'
       - 'VITE_GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID}'
+      - '--build-arg'
+      - 'VITE_LEADERBOARD_MODE=${_VITE_LEADERBOARD_MODE}'
+      - '--build-arg'
+      - 'VITE_PLACE_WEIGHT_MODE=${_VITE_PLACE_WEIGHT_MODE}'
       - '-t'
       - 'gcr.io/$PROJECT_ID/tebakinaja:latest'
       - '.'
@@ -33,3 +41,6 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

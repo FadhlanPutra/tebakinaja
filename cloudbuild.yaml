@@ -38,7 +38,7 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/tebakinaja:latest'
       - '--region'
-      - 'asia-southeast1'
+      - 'asia-southeast12
       - '--allow-unauthenticated'
       - '--port'
       - '8080'

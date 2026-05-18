@@ -1,7 +1,60 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(API_KEY);
+/**
+ * Abstraction layer to call Gemini API either directly (Direct Mode)
+ * or through the backend proxy (Proxy Mode)
+ * @param {string} prompt - The prompt to send to Gemini
+ * @returns {Promise<string>} The generated text
+ */
+export const generateClue = async (prompt) => {
+  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+  if (API_KEY) {
+    console.log('[GeminiService] Running in Direct Mode (Frontend SDK)');
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+
+    const generateWithRetry = async (model, payload, maxRetries = 3) => {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          return await model.generateContent(payload);
+        } catch (error) {
+          if (error.message?.includes('503') && i < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+            continue;
+          }
+          throw error;
+        }
+      }
+    };
+
+    const result = await generateWithRetry(model, {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7 }
+    });
+
+    return result.response.text();
+  } else {
+    console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
+    const response = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Gagal memanggil backend proxy: ${response.status} ${response.statusText}. ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.text;
+  }
+};
 
 /**
  * Generate clue and facts from Gemini based on place data
@@ -10,15 +63,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
  */
 export const generateGameClue = async (placeData, otherPlaces) => {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
-    // const model = genAI.getGenerativeModel({
-    //   model: "gemini-2.0-flash",
-    //   generationConfig: {
-    //     responseMimeType: "application/json", // hanya jalan di v1beta
-    //   }
-    // });
-
-const prompt = `
+    const prompt = `
 Anda adalah AI pembuat kuis game geoguessr bernama "TebakinAja".
 Buatkan 1 soal teka-teki tentang tempat berikut:
 Nama Tempat: ${placeData.name}
@@ -61,27 +106,7 @@ Respons HANYA JSON murni:
 }
 `;
 
-    const generateWithRetry = async (model, payload, maxRetries = 3) => {
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          return await model.generateContent(payload);
-        } catch (error) {
-          if (error.message?.includes('503') && i < maxRetries - 1) {
-            // Tunggu 2 detik sebelum retry
-            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
-            continue;
-          }
-          throw error;
-        }
-      }
-    };
-
-    const result = await generateWithRetry(model, {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7 }
-    });
-
-    const responseText = result.response.text();
+    const responseText = await generateClue(prompt);
     let jsonResult;
     try {
       jsonResult = JSON.parse(responseText.replace(/```json/gi, '').replace(/```/g, '').trim());

@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef } from 'react';
 import { GameContext } from '../context/GameContext';
 import { fetchPlacesByCity } from '../services/placesService';
 import { generateGameClue } from '../services/geminiService';
+import { getPlaceWeights, incrementPlaceWeight, pickWeightedPlace } from '../services/placeWeightService';
 import { 
   saveCluesToCache, 
   getClueFromCache, 
@@ -109,7 +110,7 @@ export const useGameLogic = () => {
       await prepareNextRound(places, [], sessionId, 1);
 
       // Background fetch clue ronde 2-5 sekaligus dalam 1 batch
-      prefetchRemainingClues(places, [places[0]?.name], sessionId);
+      prefetchRemainingClues(places, [places[0]?.name], sessionId, city);
 
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
@@ -120,19 +121,27 @@ export const useGameLogic = () => {
    * Fetch clue ronde 2-5 di background dalam 1 batch Gemini
    * Hasilnya disimpan ke Firestore cache
    */
-  const prefetchRemainingClues = async (placesList, playedPlaces, sessionId) => {
+  const prefetchRemainingClues = async (placesList, playedPlaces, sessionId, city) => {
     try {
       const remainingRounds = [2, 3, 4, 5];
       const clues = {};
       let currentPlayed = [...playedPlaces];
+
+      const userToken = state.token || 'guest';
+      const weights = await getPlaceWeights(
+        city || state.city, 
+        userToken
+      );
 
       // Generate semua clue ronde 2-5 secara paralel
       const cluePromises = remainingRounds.map(async (round) => {
         const availablePlaces = placesList.filter(p => !currentPlayed.includes(p.name));
         if (availablePlaces.length === 0) return null;
 
-        const targetPlace = availablePlaces[Math.floor(Math.random() * availablePlaces.length)];
+        const targetPlace = pickWeightedPlace(availablePlaces, weights);
         currentPlayed.push(targetPlace.name);
+
+        incrementPlaceWeight(city, userToken, targetPlace.name);
 
         const clueData = await generateGameClue(targetPlace, placesList);
         return { round, clueData, placeName: targetPlace.name };
@@ -164,7 +173,8 @@ export const useGameLogic = () => {
     placesList = state.placesList,
     playedPlaces = state.playedPlaces,
     sessionId = state.sessionId,
-    round = state.round
+    round = state.round,
+    city = state.city
   ) => {
     dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Menyiapkan pertanyaan...` } });
     
@@ -205,7 +215,9 @@ export const useGameLogic = () => {
 
       // Ronde 1 atau cache miss → fetch langsung ke Gemini
       const availablePlaces = placesList.filter(p => !playedPlaces.includes(p.name));
-      const targetPlace = availablePlaces[Math.floor(Math.random() * availablePlaces.length)];
+      const userToken = state.token || 'guest';
+      const weights = await getPlaceWeights(state.city, userToken);
+      const targetPlace = pickWeightedPlace(availablePlaces, weights);
 
       const questionData = await generateGameClue(targetPlace, placesList);
       const method = pickMethod();
@@ -214,6 +226,9 @@ export const useGameLogic = () => {
         type: 'SET_QUESTION', 
         payload: { question: questionData, placeName: targetPlace.name, method }
       });
+
+      // Setelah dispatch SET_QUESTION, update weight:
+      incrementPlaceWeight(city, userToken, targetPlace.name);
 
       // Set lingkaran radius dengan tengah yang sudah di-offset
       const difficulty = questionData.difficulty || 'medium';
@@ -417,7 +432,8 @@ export const useGameLogic = () => {
         state.placesList,
         state.playedPlaces,
         state.sessionId,
-        state.round + 1  // ronde berikutnya
+        state.round + 1,  // ronde berikutnya
+        state.city
       );
     }
   };

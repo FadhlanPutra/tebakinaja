@@ -46,11 +46,24 @@ export const fetchPlacesByCity = async (city) => {
 
     // Query per kategori agar hasil lebih variatif
     const queries = [
+      // Kuliner & Nongkrong
       `tempat makan restoran kuliner khas populer di ${city} Indonesia`,
-      `pusat perbelanjaan mall terkenal di ${city} Indonesia`,
-      `taman hiburan rekreasi wisata alam di ${city} Indonesia`,
-      `tempat bersejarah landmark monumen ikonik di ${city} Indonesia`,
       `cafe kedai kopi hits tempat nongkrong di ${city} Indonesia`,
+      `pasar tradisional pasar kuliner oleh oleh terkenal di ${city} Indonesia`,
+      // Wisata & Hiburan
+      `taman hiburan rekreasi wisata alam populer di ${city} Indonesia`,
+      `pantai wisata bahari populer di ${city} Indonesia`,
+      `kebun binatang taman safari wahana wisata di ${city} Indonesia`,
+      // Landmark & Tempat Ikonik
+      `tempat bersejarah landmark monumen ikonik di ${city} Indonesia`,
+      `jembatan tugu air mancur landmark kota di ${city} Indonesia`,
+      `museum galeri seni budaya terkenal di ${city} Indonesia`,
+      // Lifestyle & Kota
+      `pusat perbelanjaan mall terkenal di ${city} Indonesia`,
+      `stadion gelanggang olahraga terkenal di ${city} Indonesia`,
+      // Pendidikan & Ibadah
+      `universitas negeri kampus PTN terkenal di ${city} Indonesia`,
+      `masjid gereja pura vihara ikonik bersejarah terkenal landmark kota di ${city} Indonesia`,
     ];
 
     const allPlaces = [];
@@ -61,7 +74,7 @@ export const fetchPlacesByCity = async (city) => {
         const { places } = await window.google.maps.places.Place.searchByText({
           textQuery: query,
           fields: ['displayName', 'location', 'rating', 'types', 'formattedAddress'],
-          maxResultCount: 5, // 5 per kategori × 5 kategori = max 25 total
+          maxResultCount: 8, // 8 per kategori × 13 kategori = max 104 total
           language: 'id',
         });
 
@@ -96,6 +109,7 @@ export const fetchPlacesByCity = async (city) => {
         rating: place.rating || 0,
         category: place.types?.[0] || 'landmark',
         address: place.formattedAddress || '',
+        used_count: 0,
       }));
 
     console.log(`[PlacesService] Total ${mappedPlaces.length} tempat unik ditemukan di ${city}`);

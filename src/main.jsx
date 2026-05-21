@@ -14,6 +14,11 @@ const AppTree = (
   < App />
 );
 
+const savedTheme = localStorage.getItem('tebakinaja_theme') || 'light';
+if (savedTheme === 'dark') {
+  document.documentElement.classList.add('dark');
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   PROVIDER === 'google' ? (
     <GoogleOAuthProvider clientId={CLIENT_ID}>

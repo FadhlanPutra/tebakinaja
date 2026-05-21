@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleMap, Marker, Circle } from '@react-google-maps/api';
 // import { useGameLogic } from '../hooks/useGameLogic';
 import { useContext } from 'react';
@@ -14,20 +14,56 @@ const mapContainerStyle = {
 
 const INDONESIA_CENTER = { lat: -2.548926, lng: 118.0148634 };
 
-const mapOptions = {
-  disableDefaultUI: true,
-  zoomControl: true,
-  clickableIcons: false,
-  styles: [
-    // Sembunyikan label POI agar tidak bocorkan jawaban
-    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  ],
-};
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#746855' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
+  { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#f3d19c' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
+  { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+];
+
+const LIGHT_MAP_STYLE = [
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+];
 
 const MapView = ({ onMapClick, isClickable, mapGuess }) => {
   // const { setMapInstance, state } = useGameLogic();
   const { state, dispatch } = useContext(GameContext);
   const setMapInstance = (map) => dispatch({ type: 'SET_MAP_INSTANCE', payload: map });
+
+  // State untuk track dark mode
+  const [isDarkMode, setIsDarkMode] = useState(
+    document.documentElement.classList.contains('dark')
+  );
+
+  // Observer untuk deteksi perubahan class di <html>
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const mapOptions = {
+    disableDefaultUI: true,
+    zoomControl: true,
+    clickableIcons: false,
+    styles: isDarkMode ? DARK_MAP_STYLE : LIGHT_MAP_STYLE,
+  };
 
   const onLoad = useCallback((map) => {
     setMapInstance(map);
@@ -46,7 +82,7 @@ const MapView = ({ onMapClick, isClickable, mapGuess }) => {
       {/* Hint overlay saat MAP mode dan modal tersembunyi */}
       {isClickable && (
         <div
-          className="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md font-bold text-sm text-slate-700 pointer-events-none"
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md font-bold text-sm text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300 pointer-events-none"
           style={{ animation: 'bounce 1s infinite' }}
         >
           👆 Klik peta untuk menandai lokasi
@@ -77,10 +113,10 @@ const MapView = ({ onMapClick, isClickable, mapGuess }) => {
             center={state.circleCenter}
             radius={state.circleRadius}
             options={{
-              fillColor: '#3B82F6',
+              fillColor: isDarkMode ? '#60A5FA' : '#3B82F6',
               fillOpacity: 0.15,
-              strokeColor: '#2563EB',
-              strokeOpacity: 0.6,
+              strokeColor: isDarkMode ? '#93C5FD' : '#2563EB',
+              strokeOpacity: 0.7,
               strokeWeight: 2,
               clickable: false,
             }}

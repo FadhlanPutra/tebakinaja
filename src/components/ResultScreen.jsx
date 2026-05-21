@@ -93,7 +93,7 @@ const ResultScreen = () => {
       animate={{ opacity: 1, y: 0 }}
       className="min-h-screen flex items-center justify-center p-4 py-10"
     >
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-100">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
         
         <div className="bg-gradient-to-br from-primary to-primary-dark p-10 text-center text-white relative">
           <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '20px 20px' }}></div>
@@ -109,26 +109,26 @@ const ResultScreen = () => {
         </div>
 
         <div className="p-8">
-          <h2 className="text-xl font-bold text-slate-800 mb-6 border-b border-slate-100 pb-2">Rangkuman Perjalanan</h2>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6 border-b border-slate-100 dark:border-slate-700/50 pb-2 transition-colors duration-300">Rangkuman Perjalanan</h2>
           
           <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
             {state.funFacts.map((item, idx) => (
-              <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-4">
+              <div key={idx} className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 flex gap-4 transition-colors duration-300">
                 <div className="shrink-0 mt-1">
                   {item.correct ? (
-                    <CheckCircle className="text-green-500" size={24} />
+                    <CheckCircle className="text-green-500 text-green-400" size={24} />
                   ) : (
-                    <XCircle className="text-red-500" size={24} />
+                    <XCircle className="text-red-500 text-red-400" size={24} />
                   )}
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                  <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 transition-colors duration-300">
                     Ronde {idx + 1}: {item.name}
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-200 text-slate-600">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors duration-300">
                       via {item.method}
                     </span>
                   </h4>
-                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed transition-colors duration-300">
                     {item.fact}
                   </p>
                 </div>
@@ -161,12 +161,12 @@ const ResultScreen = () => {
                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                 onClick={() => setShowLeaderboard(false)}
               />
-              <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-md w-full relative z-10 max-h-[80vh] flex flex-col">
+              <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 rounded-3xl shadow-2xl p-6 max-w-md w-full relative z-10 max-h-[80vh] flex flex-col transition-colors duration-300">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-slate-800">🏆 Leaderboard Global</h3>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 transition-colors duration-300">🏆 Leaderboard Global</h3>
                   <button
                     onClick={() => setShowLeaderboard(false)}
-                    className="text-slate-400 hover:text-slate-600"
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors duration-300"
                   >
                     <X size={24} />
                   </button>
@@ -177,34 +177,34 @@ const ResultScreen = () => {
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : leaderboard.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">Belum ada skor. Jadilah yang pertama!</p>
+                  <p className="text-center text-slate-500 dark:text-slate-400 py-8 transition-colors duration-300">Belum ada skor. Jadilah yang pertama!</p>
                 ) : (
                   <div className="overflow-y-auto flex-1">
                     <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-white">
-                        <tr className="border-b border-slate-100">
-                          <th className="text-left py-2 text-slate-500 font-semibold">#</th>
-                          <th className="text-left py-2 text-slate-500 font-semibold">Nama</th>
-                          <th className="text-left py-2 text-slate-500 font-semibold">Kota</th>
-                          <th className="text-right py-2 text-slate-500 font-semibold">Skor</th>
+                      <thead className="sticky top-0 bg-white dark:bg-slate-800 transition-colors duration-300">
+                        <tr className="border-b border-slate-100 dark:border-slate-700/50">
+                          <th className="text-left py-2 text-slate-500 dark:text-slate-400 font-semibold transition-colors duration-300">#</th>
+                          <th className="text-left py-2 text-slate-500 dark:text-slate-400 font-semibold transition-colors duration-300">Nama</th>
+                          <th className="text-left py-2 text-slate-500 dark:text-slate-400 font-semibold transition-colors duration-300">Kota</th>
+                          <th className="text-right py-2 text-slate-500 dark:text-slate-400 font-semibold transition-colors duration-300">Skor</th>
                         </tr>
                       </thead>
                       <tbody>
                         {leaderboard.map((entry, idx) => (
                           <tr
                             key={idx}
-                            className={`border-b border-slate-50 ${
+                            className={`border-b border-slate-50 dark:border-slate-700/30 transition-colors duration-300 ${
                               entry.token === state.token || entry.token === state.googleUser?.uid
-                                ? 'bg-primary-light font-bold text-primary'
+                                ? 'bg-primary-light dark:bg-primary/20 font-bold text-primary dark:text-primary-light'
                                 : ''
                             }`}
                           >
-                            <td className="py-3 text-slate-500">
+                            <td className="py-3 text-slate-500 dark:text-slate-400">
                               {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
                             </td>
-                            <td className="py-3 text-slate-800">{entry.nickname}</td>
-                            <td className="py-3 text-slate-500">{entry.city}</td>
-                            <td className="py-3 text-right text-primary font-bold">{entry.score}</td>
+                            <td className="py-3 text-slate-800 dark:text-slate-200">{entry.nickname}</td>
+                            <td className="py-3 text-slate-500 dark:text-slate-400">{entry.city}</td>
+                            <td className="py-3 text-right text-primary dark:text-primary-light font-bold">{entry.score}</td>
                           </tr>
                         ))}
                       </tbody>

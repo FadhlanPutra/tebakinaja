@@ -17,7 +17,7 @@ const MapIllustration = () => {
   ];
 
   return (
-    <div className="relative w-full h-40 bg-slate-50 rounded-2xl mb-8 overflow-hidden border border-slate-100 flex items-center justify-center">
+    <div className="relative w-full h-40 bg-slate-50 dark:bg-slate-900 rounded-2xl mb-8 overflow-hidden border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-colors duration-300">
       <svg className="absolute w-full h-full opacity-10 text-primary" viewBox="0 0 100 100" preserveAspectRatio="none">
         <path fill="currentColor" d="M10,40 Q20,20 40,30 T70,40 T90,30 Q95,60 80,70 T40,80 T10,60 Z" />
       </svg>
@@ -124,7 +124,7 @@ const LandingPage = () => {
     >
       <button 
         onClick={() => setShowSettings(true)} 
-        className="absolute top-4 right-4 text-slate-500 hover:text-slate-700 p-3 z-20 bg-white rounded-full shadow-md border border-slate-100 transition-all hover:scale-110"
+        className="absolute top-4 right-4 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-3 z-20 bg-white dark:bg-slate-800 rounded-full shadow-md border border-slate-100 dark:border-slate-700 transition-all duration-300 hover:scale-110"
       >
         <Settings size={24} />
       </button>
@@ -135,48 +135,48 @@ const LandingPage = () => {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full relative z-10 border border-slate-100 flex flex-col items-center"
+        className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-8 max-w-md w-full relative z-10 border border-slate-100 dark:border-slate-700 flex flex-col items-center transition-colors duration-300"
       >
         <motion.div variants={itemVariants} className="flex items-center gap-2 mb-6">
           <span className="text-3xl">🗺️</span>
-          <h1 className="text-4xl font-heading font-extrabold text-dark">Tebakin<span className="text-primary">Aja</span></h1>
+          <h1 className="text-4xl font-heading font-extrabold text-dark dark:text-white transition-colors duration-300">Tebakin<span className="text-primary">Aja</span></h1>
         </motion.div>
 
         <motion.div variants={itemVariants} className="w-full">
           <MapIllustration />
         </motion.div>
 
-        <motion.h2 variants={itemVariants} className="text-xl font-bold text-center text-slate-800 mb-3 leading-tight">
+        <motion.h2 variants={itemVariants} className="text-xl font-bold text-center text-slate-800 dark:text-slate-200 mb-3 leading-tight transition-colors duration-300">
           Seberapa kenal kamu dengan kotamu sendiri?
         </motion.h2>
-        <motion.p variants={itemVariants} className="text-slate-500 text-sm text-center mb-8 font-medium leading-relaxed">
+        <motion.p variants={itemVariants} className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8 font-medium leading-relaxed transition-colors duration-300">
           Kita sering lebih tahu tempat viral di kota lain daripada di kota kita sendiri. TebakinAja hadir untuk mengubah itu jadi tantangan seru berbasis kearifan lokal Indonesia.
         </motion.p>
 
         <motion.div variants={itemVariants} className="flex gap-4 w-full mb-8">
           <button 
             onClick={() => setShowHowToPlay(true)}
-            className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-3 px-3 rounded-xl transition-colors border border-slate-200 flex items-center justify-center gap-2 text-sm"
+            className="flex-1 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold py-3 px-3 rounded-xl transition-colors duration-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 text-sm"
           >
             <HelpCircle size={18} className="text-primary" /> Cara Main
           </button>
           <button 
             onClick={openLeaderboard}
-            className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-3 px-3 rounded-xl transition-colors border border-slate-200 flex items-center justify-center gap-2 text-sm"
+            className="flex-1 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold py-3 px-3 rounded-xl transition-colors duration-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 text-sm"
           >
             <Trophy size={18} className="text-secondary" /> Leaderboard
           </button>
         </motion.div>
 
         <motion.div variants={itemVariants} className="w-full mb-6">
-          <label className="block text-sm font-bold text-slate-700 mb-2">Siapa namamu?</label>
+          <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 transition-colors duration-300">Siapa namamu?</label>
           <input 
             type="text" 
             placeholder="Masukkan nickname..."
             maxLength={20}
             value={localNickname}
             onChange={(e) => setLocalNickname(e.target.value)}
-            className="w-full appearance-none bg-slate-50 border-2 border-slate-200 text-slate-700 py-3 px-4 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-primary transition-colors font-semibold"
+            className="w-full appearance-none bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-3 px-4 rounded-xl leading-tight focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-primary transition-colors duration-300 font-semibold"
           />
         </motion.div>
 
@@ -202,15 +202,15 @@ const LandingPage = () => {
             />
             <motion.div
               variants={modalVariants} initial="hidden" animate="visible" exit="exit"
-              className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full relative z-10"
+              className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full relative z-10 transition-colors duration-300"
             >
-              <button onClick={() => setShowHowToPlay(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2">
+              <button onClick={() => setShowHowToPlay(false)} className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 p-2 transition-colors duration-300">
                 <X size={24} />
               </button>
-              <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2 transition-colors duration-300">
                 <HelpCircle className="text-primary" /> Cara Main TebakinAja
               </h3>
-              <ul className="space-y-4 text-slate-600 font-medium text-sm md:text-base">
+              <ul className="space-y-4 text-slate-600 dark:text-slate-300 font-medium text-sm md:text-base transition-colors duration-300">
                 <li className="flex gap-3 items-start"><span className="text-xl leading-none">🏙️</span> <span>Pilih kota yang ingin kamu tantang</span></li>
                 <li className="flex gap-3 items-start"><span className="text-xl leading-none">🔍</span> <span>Baca clue tentang sebuah tempat</span></li>
                 <li className="flex gap-3 items-start"><span className="text-xl leading-none">📍</span> <span>Tebak lokasinya di peta atau ketik jawabannya</span></li>
@@ -232,12 +232,12 @@ const LandingPage = () => {
             />
             <motion.div
               variants={modalVariants} initial="hidden" animate="visible" exit="exit"
-              className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full relative z-10 max-h-[85vh] flex flex-col"
+              className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full relative z-10 max-h-[85vh] flex flex-col transition-colors duration-300"
             >
-              <button onClick={() => setShowLeaderboard(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2">
+              <button onClick={() => setShowLeaderboard(false)} className="absolute top-4 right-4 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 p-2 transition-colors duration-300">
                 <X size={24} />
               </button>
-              <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2 shrink-0">
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2 shrink-0 transition-colors duration-300">
                 <Trophy className="text-secondary" fill="currentColor" /> Leaderboard Top 10
               </h3>
               
@@ -247,25 +247,33 @@ const LandingPage = () => {
                     <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : leaderboardError ? (
-                  <div className="text-center py-8 text-slate-500 font-medium">
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400 font-medium transition-colors duration-300">
                     Leaderboard belum tersedia
                   </div>
                 ) : leaderboardData.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 font-medium">
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400 font-medium transition-colors duration-300">
                     Belum ada skor. Jadilah yang pertama!
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {leaderboardData.map((entry, idx) => (
-                      <div key={entry.id} className="flex items-center bg-slate-50 border border-slate-100 p-3 rounded-xl gap-4 transition-colors hover:bg-slate-100">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${idx === 0 ? 'bg-yellow-100 text-yellow-600' : idx === 1 ? 'bg-slate-200 text-slate-600' : idx === 2 ? 'bg-orange-100 text-orange-600' : 'bg-white text-slate-400 border border-slate-200'}`}>
+                      <div key={entry.id} className="flex items-center bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 p-3 rounded-xl gap-4 transition-colors duration-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-colors duration-300 ${
+                          idx === 0 
+                            ? 'bg-yellow-100 dark:bg-yellow-950/40 text-yellow-600 dark:text-yellow-400' 
+                            : idx === 1 
+                              ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300' 
+                              : idx === 2 
+                                ? 'bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400' 
+                                : 'bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-350 border border-slate-200 dark:border-slate-650'
+                        }`}>
                           {idx + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-slate-800 truncate">{entry.nickname}</h4>
-                          <p className="text-xs text-slate-500 truncate">{entry.city} • {new Date(entry.created_at).toLocaleDateString()}</p>
+                          <h4 className="font-bold text-slate-800 dark:text-slate-100 truncate transition-colors duration-300">{entry.nickname}</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate transition-colors duration-300">{entry.city} • {new Date(entry.created_at).toLocaleDateString()}</p>
                         </div>
-                        <div className="font-extrabold text-primary shrink-0 text-lg">
+                        <div className="font-extrabold text-primary dark:text-primary-light shrink-0 text-lg transition-colors duration-300">
                           {entry.score}
                         </div>
                       </div>

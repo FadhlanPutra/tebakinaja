@@ -48,30 +48,30 @@ const CitySelection = ({ startGame, onBack }) => {
     >
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #0D9488 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
 
-      <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full relative z-10 border border-slate-100">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-8 max-w-md w-full relative z-10 border border-slate-100 dark:border-slate-750 transition-colors duration-300">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-700 font-semibold text-sm mb-6 transition-colors"
+          className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-semibold text-sm mb-6 transition-colors duration-300"
         >
           <ArrowLeft size={16} /> Kembali ke Beranda
         </button>
 
         <div className="flex justify-center mb-6">
-          <div className="bg-primary-light p-4 rounded-full">
+          <div className="bg-primary-light dark:bg-primary-dark/20 p-4 rounded-full transition-colors duration-300">
             <MapPin size={48} className="text-primary" />
           </div>
         </div>
 
-        <h1 className="text-4xl font-heading font-extrabold text-center text-dark mb-2">
+        <h1 className="text-4xl font-heading font-extrabold text-center text-dark dark:text-white mb-2 transition-colors duration-300">
           Tebakin<span className="text-primary">Aja</span>
         </h1>
-        <p className="text-slate-500 text-center mb-8 font-sans">
+        <p className="text-slate-500 dark:text-slate-400 text-center mb-8 font-sans transition-colors duration-300">
           Uji pengetahuanmu tentang landmark dan tempat ikonik di Indonesia!
         </p>
 
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 transition-colors duration-300">
               Pilih Kota Destinasi
             </label>
             <div className="relative">
@@ -92,12 +92,12 @@ const CitySelection = ({ startGame, onBack }) => {
                 }}
                 onFocus={() => setIsDropdownOpen(true)}
                 placeholder="Cari kota..."
-                className="w-full bg-slate-50 border-2 border-slate-200 text-slate-700 py-3 px-4 rounded-xl focus:outline-none focus:bg-white focus:border-primary transition-colors font-semibold"
+                className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-3 px-4 rounded-xl focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-primary transition-colors duration-300 font-semibold"
               />
 
               {/* Dropdown hasil search */}
               {isDropdownOpen && filteredCities.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-y-auto transition-colors duration-300">
                   {filteredCities.map(city => (
                     <button
                       key={city}
@@ -106,8 +106,8 @@ const CitySelection = ({ startGame, onBack }) => {
                         setSearch(city);
                         setIsDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-3 text-sm font-semibold hover:bg-slate-50 transition-colors
-                        ${selectedCity === city ? 'text-primary bg-primary-light' : 'text-slate-700'}
+                      className={`w-full text-left px-4 py-3 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-300
+                        ${selectedCity === city ? 'text-primary dark:text-primary-light bg-primary-light dark:bg-primary-dark/30' : 'text-slate-700 dark:text-slate-300'}
                       `}
                     >
                       {city}
@@ -118,7 +118,7 @@ const CitySelection = ({ startGame, onBack }) => {
 
               {/* Kalau search tidak ketemu */}
               {isDropdownOpen && search && filteredCities.length === 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-4 text-sm text-slate-500 text-center">
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-4 text-sm text-slate-500 dark:text-slate-400 text-center transition-colors duration-300">
                   Kota tidak ditemukan
                 </div>
               )}
@@ -126,14 +126,14 @@ const CitySelection = ({ startGame, onBack }) => {
 
             {/* Kota yang dipilih */}
             {selectedCity && (
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 transition-colors duration-300">
                 Kota dipilih: <span className="font-bold text-primary">{selectedCity}</span>
               </p>
             )}
           </div>
 
           {state.error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold border border-red-200">
+            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm font-semibold border border-red-200 dark:border-red-900/50 transition-colors duration-300">
               {state.error}
             </div>
           )}

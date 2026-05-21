@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-primary: #ffffff;
+  --text-primary: #1e293b;
+}
+
+.dark {
+  --bg-primary: #0f172a;
+  --text-primary: #f1f5f9;
+}
+
+body {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+main.bg-light {
+  background-color: var(--bg-primary) !important;
+  transition: background-color 0.3s ease;
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
@@ -10,11 +31,20 @@
     background: #f1f5f9;
     border-radius: 4px;
   }
+  .dark .custom-scrollbar::-webkit-scrollbar-track {
+    background: #1e293b;
+  }
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
   }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569;
+  }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
   }
 }

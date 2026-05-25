@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { GoogleMap, Marker, Circle } from '@react-google-maps/api';
+import { GoogleMap, Marker, Circle, Polyline } from '@react-google-maps/api';
 // import { useGameLogic } from '../hooks/useGameLogic';
 import { useContext } from 'react';
 import { GameContext } from '../context/GameContext';
@@ -76,6 +76,18 @@ const MapView = ({ onMapClick, isClickable, mapGuess }) => {
 
   const showActualLocation = !state.timerActive && state.currentQuestion;
 
+  // Auto-fit bounds agar tebakan dan jawaban terlihat sekaligus
+  useEffect(() => {
+    if (showActualLocation && mapGuess && state.mapInstance && state.answerMethod === 'MAP') {
+      const bounds = new window.google.maps.LatLngBounds();
+      bounds.extend({ lat: mapGuess.lat, lng: mapGuess.lng });
+      bounds.extend({ lat: state.currentQuestion.lat, lng: state.currentQuestion.lng });
+      state.mapInstance.fitBounds(bounds, {
+        top: 80, right: 40, bottom: 200, left: 40
+      });
+    }
+  }, [showActualLocation]);
+
   return (
     // Absolute inset-0 — mengisi seluruh parent GameScreen
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -122,19 +134,58 @@ const MapView = ({ onMapClick, isClickable, mapGuess }) => {
             }}
           />
         )}
-        {/* Marker tebakan user */}
-        {mapGuess && !showActualLocation && (
-          <Marker
-            position={mapGuess}
-            animation={window.google.maps.Animation.DROP}
+        {/* Garis jarak antara tebakan user dan jawaban sebenarnya */}
+        {showActualLocation && mapGuess && state.answerMethod === 'MAP' && (
+          <Polyline
+            path={[
+              { lat: mapGuess.lat, lng: mapGuess.lng },
+              { lat: state.currentQuestion.lat, lng: state.currentQuestion.lng }
+            ]}
+            options={{
+              strokeColor: '#EF4444',
+              strokeOpacity: 0.8,
+              strokeWeight: 2.5,
+              geodesic: true,
+              icons: [{
+                icon: {
+                  path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                  scale: 3,
+                  strokeColor: '#EF4444',
+                },
+                offset: '100%',
+              }]
+            }}
           />
         )}
 
-        {/* Marker lokasi sebenarnya (muncul setelah jawab) */}
+        {/* Marker tebakan user — tetap tampil setelah jawab */}
+        {mapGuess && (
+          <Marker
+            position={mapGuess}
+            animation={window.google.maps.Animation.DROP}
+            icon={{
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#EF4444',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
+          />
+        )}
+
+        {/* Marker lokasi sebenarnya setelah jawab */}
         {showActualLocation && (
           <Marker
             position={{ lat: state.currentQuestion.lat, lng: state.currentQuestion.lng }}
-            icon="http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+            icon={{
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: '#10B981',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
           />
         )}
       </GoogleMap>

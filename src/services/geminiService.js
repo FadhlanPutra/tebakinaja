@@ -37,14 +37,25 @@ export const generateClue = async (prompt) => {
     return result.response.text();
   } else {
     console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
+
+    // Timeout 30 detik — kalau tidak respond, throw error
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     const response = await fetch(BACKEND_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
+
+    console.log('[GeminiService] Response status:', response.status);
+    console.log('[GeminiService] Response ok:', response.ok);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
@@ -64,47 +75,47 @@ export const generateClue = async (prompt) => {
 export const generateGameClue = async (placeData, otherPlaces) => {
   try {
     const prompt = `
-Anda adalah AI pembuat kuis game geoguessr bernama "TebakinAja".
-Buatkan 1 soal teka-teki tentang tempat berikut:
-Nama Tempat: ${placeData.name}
-Kategori: ${placeData.category || 'tempat umum'}
-Alamat: ${placeData.address || 'Indonesia'}
+      Anda adalah AI pembuat kuis game geoguessr bernama "TebakinAja".
+      Buatkan 1 soal teka-teki tentang tempat berikut:
+      Nama Tempat: ${placeData.name}
+      Kategori: ${placeData.category || 'tempat umum'}
+      Alamat: ${placeData.address || 'Indonesia'}
 
-ATURAN DIFFICULTY (wajib ikuti):
-- "easy": tempat yang SANGAT terkenal, dikenal hampir semua orang Indonesia (Monas, GBK, dsb)
-- "medium": tempat yang cukup dikenal warga lokal kota tersebut
-- "hard": tempat yang hanya dikenal orang yang tinggal atau sering ke kota tersebut
+      ATURAN DIFFICULTY (wajib ikuti):
+      - "easy": tempat yang SANGAT terkenal, dikenal hampir semua orang Indonesia (Monas, GBK, dsb)
+      - "medium": tempat yang cukup dikenal warga lokal kota tersebut
+      - "hard": tempat yang hanya dikenal orang yang tinggal atau sering ke kota tersebut
 
-JANGAN jadikan tempat dengan nama asing/kolonial/tidak umum sebagai soal "easy" atau "medium".
-Kalau nama tempatnya tidak umum dikenal, wajib pilih "hard".
+      JANGAN jadikan tempat dengan nama asing/kolonial/tidak umum sebagai soal "easy" atau "medium".
+      Kalau nama tempatnya tidak umum dikenal, wajib pilih "hard".
 
-ATURAN CLUE:
-- Sesuaikan dengan kategori: restoran → bahas menu/suasana, mall → bahas tenant/arsitektur, taman → bahas aktivitas
-- JANGAN selalu bahas sejarah kolonial
-- JANGAN sebut nama tempat di clue
-- Buat clue yang fun dan relatable, bukan seperti buku sejarah
+      ATURAN CLUE:
+      - Sesuaikan dengan kategori: restoran → bahas menu/suasana, mall → bahas tenant/arsitektur, taman → bahas aktivitas
+      - JANGAN selalu bahas sejarah kolonial
+      - JANGAN sebut nama tempat di clue
+      - Buat clue yang fun dan relatable, bukan seperti buku sejarah
 
-Untuk accepted_answers:
-- WAJIB isi dengan variasi nama yang SPESIFIK dan UNIK untuk tempat ini saja
-- JANGAN masukkan kata tunggal yang bersifat generik dan bisa merujuk ke banyak tempat lain
-- Setiap accepted_answer minimal harus terdiri dari 2 kata ATAU merupakan singkatan/akronim yang unik
-- Contoh BENAR untuk "Mall Artha Gading": ["mall artha gading", "artha gading", "MAG"]
-- Contoh SALAH untuk "Mall Artha Gading": ["mall", "artha", "gading", "mal"]
-- Contoh BENAR untuk "Cibinong City Mall": ["cibinong city mall", "CCM", "cibinong mall"]
-- Contoh SALAH untuk "Cibinong City Mall": ["mall", "cibinong", "city mall"]
-- Contoh BENAR untuk "Monumen Nasional": ["monumen nasional", "monas", "tugu monas"]
-- Contoh SALAH untuk "Monumen Nasional": ["monumen", "tugu", "nasional"]
-- Singkatan/akronim yang unik dan dikenal luas tetap boleh meskipun 1 kata (contoh: "monas", "GBK", "TMII")
+      Untuk accepted_answers:
+      - WAJIB isi dengan variasi nama yang SPESIFIK dan UNIK untuk tempat ini saja
+      - JANGAN masukkan kata tunggal yang bersifat generik dan bisa merujuk ke banyak tempat lain
+      - Setiap accepted_answer minimal harus terdiri dari 2 kata ATAU merupakan singkatan/akronim yang unik
+      - Contoh BENAR untuk "Mall Artha Gading": ["mall artha gading", "artha gading", "MAG"]
+      - Contoh SALAH untuk "Mall Artha Gading": ["mall", "artha", "gading", "mal"]
+      - Contoh BENAR untuk "Cibinong City Mall": ["cibinong city mall", "CCM", "cibinong mall"]
+      - Contoh SALAH untuk "Cibinong City Mall": ["mall", "cibinong", "city mall"]
+      - Contoh BENAR untuk "Monumen Nasional": ["monumen nasional", "monas", "tugu monas"]
+      - Contoh SALAH untuk "Monumen Nasional": ["monumen", "tugu", "nasional"]
+      - Singkatan/akronim yang unik dan dikenal luas tetap boleh meskipun 1 kata (contoh: "monas", "GBK", "TMII")
 
-Respons HANYA JSON murni:
-{
-  "clue": "...",
-  "answer": "${placeData.name}",
-  "accepted_answers": [...],
-  "difficulty": "easy|medium|hard",
-  "fun_fact": "..."
-}
-`;
+      Respons HANYA JSON murni:
+      {
+        "clue": "...",
+        "answer": "${placeData.name}",
+        "accepted_answers": [...],
+        "difficulty": "easy|medium|hard",
+        "fun_fact": "..."
+      }
+    `;
 
     const responseText = await generateClue(prompt);
     let jsonResult;

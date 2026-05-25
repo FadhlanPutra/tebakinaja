@@ -5,6 +5,8 @@ import MapView from './MapView';
 import ClueModal from './ClueModal';
 import { Settings, Timer, Trophy, HelpCircle } from 'lucide-react';
 import SettingsPage from './SettingsPage';
+import Swal from 'sweetalert2';
+import { LogOut } from 'lucide-react';
 
 const GameScreen = ({submitAnswer, nextRound}) => {
   // const { state, submitAnswer, nextRound } = useGameLogic();
@@ -36,12 +38,63 @@ const GameScreen = ({submitAnswer, nextRound}) => {
     dispatch({ type: 'TOGGLE_CLUE_MODAL', payload: true });
   };
 
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   const handleNextRound = () => {
     setLastAnswerStatus(null);
     setMapResultStatus(null);
     setTextResultStatus(null);
     setMapGuess(null);
     nextRound();
+  };
+
+  const handleExitGame = async () => {
+    let countdown = 5;
+  
+    const result = await Swal.fire({
+      title: 'Keluar dari Game?',
+      html: `Progress kamu akan hilang dan tidak tersimpan.<br/><br/><b id="swal-exit-countdown">Tombol aktif dalam ${countdown} detik...</b>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'Ya, keluar',
+      cancelButtonText: 'Lanjut Main',
+      allowOutsideClick: false,
+      didOpen: () => {
+        const confirmBtn = Swal.getConfirmButton();
+        const countdownEl = document.getElementById('swal-exit-countdown');
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.4';
+        confirmBtn.style.cursor = 'not-allowed';
+      
+        const timer = setInterval(() => {
+          countdown--;
+          if (countdownEl) {
+            countdownEl.textContent = countdown > 0
+              ? `Tombol aktif dalam ${countdown} detik...`
+              : 'Yakin ingin keluar?';
+          }
+          if (countdown <= 0) {
+            clearInterval(timer);
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.cursor = 'pointer';
+          }
+        }, 1000);
+      },
+    });
+  
+    if (result.isConfirmed) {
+      dispatch({ type: 'RESET_GAME' });
+    }
   };
 
   const handleMapClick = (pos) => {
@@ -55,13 +108,19 @@ const GameScreen = ({submitAnswer, nextRound}) => {
     state.answerMethod === 'MAP' &&
     !state.showClueModal &&
     state.timerActive;
-
-  if (state.isLoading && !question) {
+    
+    if (state.isLoading && !question) {
+    console.log('[GameScreen] isLoading:', state.isLoading, 'question:', state.currentQuestion?.answer);
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-lg font-bold text-slate-700 dark:text-slate-200 transition-colors duration-300">{state.loadingMessage}</p>
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
+            {state.loadingMessage || 'Memuat...'}
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+            Mohon tunggu sebentar
+          </p>
         </div>
       </div>
     );
@@ -73,6 +132,14 @@ const GameScreen = ({submitAnswer, nextRound}) => {
       <header className="absolute top-0 left-0 right-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700/50 shadow-sm px-4 h-14 flex items-center justify-between transition-colors duration-300 text-slate-800 dark:text-slate-200">
         <div className="flex items-center gap-2">
           <span>TebakinAja 🗺️</span>
+          <button
+            onClick={handleExitGame}
+            className="text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-300"
+            title="Keluar dari game"
+          >
+            <LogOut size={18} />
+          </button>
+
           <span>Ronde {state.round}/{state.maxRounds}</span>
         </div>
 

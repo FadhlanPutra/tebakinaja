@@ -149,6 +149,13 @@ const CitySelection = ({ startGame, onBack }) => {
               <>Mulai Main <Play fill="currentColor" size={20} /></>
             )}
           </button>
+
+          {state.isLoading && (
+            <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <span>{state.loadingMessage || 'Memuat...'}</span>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

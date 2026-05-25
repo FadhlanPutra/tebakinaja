@@ -73,7 +73,14 @@ export const fetchPlacesByCity = async (city) => {
       try {
         const { places } = await window.google.maps.places.Place.searchByText({
           textQuery: query,
-          fields: ['displayName', 'location', 'rating', 'types', 'formattedAddress'],
+          fields: [
+            'displayName',
+            'location',
+            'rating',
+            'userRatingCount',
+            'types',
+            'formattedAddress',
+          ],
           maxResultCount: 8, // 8 per kategori × 13 kategori = max 104 total
           language: 'id',
         });
@@ -93,13 +100,48 @@ export const fetchPlacesByCity = async (city) => {
       return [];
     }
 
-    // ─── 3. Filter dan deduplicate berdasarkan nama ─────────────────────────
+    // ─── 3. Filter, deduplicate, dan validasi ──────────────────────────────────
     const seen = new Set();
+    const cityLower = city.toLowerCase();
+
+    // Daftar keyword yang menandakan bukan tempat wisata/landmark
+    const EXCLUDED_KEYWORDS = [
+      'toko', 'warung', 'depot', 'laundry', 'salon', 'klinik',
+      'apotek', 'bengkel', 'kantor', 'ruko', 'kos', 'kontrakan',
+      'semi indor', 'semi indoor', // hasil aneh dari Places API
+    ];
+
     const mappedPlaces = allPlaces
       .filter(p => {
+        // Wajib punya lokasi dan nama
         if (!p.location || !p.displayName) return false;
+
+        // Deduplicate
         if (seen.has(p.displayName)) return false;
         seen.add(p.displayName);
+
+        // Filter rating minimum 4.3
+        if ((p.rating || 0) < 4.3) return false;
+
+        // Filter minimum 100 ulasan — pastikan tempat cukup dikenal
+        if ((p.userRatingCount || 0) < 100) return false;
+
+        // Filter nama yang mengandung keyword bukan wisata
+        const nameLower = p.displayName.toLowerCase();
+        if (EXCLUDED_KEYWORDS.some(kw => nameLower.includes(kw))) return false;
+
+        // Filter alamat harus mengandung nama kota
+        // Ini mencegah tempat dari kota lain masuk ke cache kota ini
+        const addressLower = (p.formattedAddress || '').toLowerCase();
+        const cityVariants = [
+          cityLower,
+          `kota ${cityLower}`,
+          `kabupaten ${cityLower}`,
+          `kab. ${cityLower}`,
+        ];
+        const isInCity = cityVariants.some(variant => addressLower.includes(variant));
+        if (!isInCity) return false;
+
         return true;
       })
       .map(place => ({
@@ -107,12 +149,18 @@ export const fetchPlacesByCity = async (city) => {
         lat: place.location.lat(),
         lng: place.location.lng(),
         rating: place.rating || 0,
+        userRatingCount: place.userRatingCount || 0,
         category: place.types?.[0] || 'landmark',
         address: place.formattedAddress || '',
         used_count: 0,
       }));
 
-    console.log(`[PlacesService] Total ${mappedPlaces.length} tempat unik ditemukan di ${city}`);
+    console.log(`[PlacesService] Total ${mappedPlaces.length} tempat valid ditemukan di ${city}`);
+
+    // Kalau hasil terlalu sedikit setelah filter, log warning
+    if (mappedPlaces.length < 5) {
+      console.warn(`[PlacesService] Hanya ${mappedPlaces.length} tempat valid di ${city} — mungkin tidak cukup untuk 5 ronde`);
+    }
 
     // ─── 4. Simpan ke Firestore cache ───────────────────────────────────────
     try {

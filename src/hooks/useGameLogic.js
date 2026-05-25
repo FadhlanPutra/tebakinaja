@@ -87,33 +87,36 @@ export const useGameLogic = () => {
   };
 
   const startGame = async (city) => {
+    console.log('[startGame] START', city);
     dispatch({ type: 'SET_CITY', payload: city });
-    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Mencari landmark di ${city}...` } });
+    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `🗺️ Mencari tempat ikonik di ${city}...` } });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      // Cleanup cache lama saat memulai game baru
-      cleanupOldCache(); // tidak perlu await, biarkan jalan di background
+      cleanupOldCache();
 
+      console.log('[startGame] Fetching places...');
       const places = await fetchPlacesByCity(city);
+      console.log('[startGame] Places fetched:', places.length);
+
       if (places.length < state.maxRounds) {
         throw new Error("Tidak menemukan cukup landmark di kota ini.");
       }
 
-      // Generate session ID baru untuk game ini
       const sessionId = generateSessionId(state.token || 'guest');
       dispatch({ type: 'SET_SESSION_ID', payload: sessionId });
-
       dispatch({ type: 'START_GAME', payload: { placesList: places } });
 
-      // Fetch clue ronde 1 langsung — tampilkan secepat mungkin
-      await prepareNextRound(places, [], sessionId, 1);
+      console.log('[startGame] Calling prepareNextRound...');
+      await prepareNextRound(places, [], sessionId, 1, city);
+      console.log('[startGame] prepareNextRound DONE');
 
-      // Background fetch clue ronde 2-5 sekaligus dalam 1 batch
       prefetchRemainingClues(places, [places[0]?.name], sessionId, city);
 
     } catch (error) {
+      console.error('[startGame] ERROR:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
+      dispatch({ type: 'SET_LOADING', payload: { status: false } });
     }
   };
 
@@ -176,15 +179,16 @@ export const useGameLogic = () => {
     round = state.round,
     city = state.city
   ) => {
-    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Menyiapkan pertanyaan...` } });
-    
+    console.log('[prepareNextRound] START round:', round);
+    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `🤖 Gemini sedang membuat teka-teki...` } });
+  
     try {
-      // Ronde 2-5: coba ambil dari cache dulu
       if (round > 1 && sessionId) {
+        console.log('[prepareNextRound] Checking cache for round:', round);
         const cachedClue = await getClueFromCache(sessionId, round);
-
+      
         if (cachedClue) {
-          console.log(`[GameLogic] Cache hit untuk ronde ${round}`);
+          console.log('[prepareNextRound] Cache HIT round:', round);
           dispatch({
             type: 'SET_QUESTION',
             payload: {
@@ -193,8 +197,7 @@ export const useGameLogic = () => {
               method: cachedClue.method || pickMethod(),
             }
           });
-
-          // Set circle untuk MAP mode
+        
           if (cachedClue.difficulty) {
             const config = DIFFICULTY_CONFIG[cachedClue.difficulty];
             const offsetCenter = offsetCoordinate(cachedClue.lat, cachedClue.lng);
@@ -206,35 +209,33 @@ export const useGameLogic = () => {
               }
             });
           }
-
-          return; // Selesai, tidak perlu fetch ke Gemini
+          return;
         }
-
-        console.log(`[GameLogic] Cache miss untuk ronde ${round}, fetch ke Gemini...`);
+      
+        console.log('[prepareNextRound] Cache MISS round:', round);
       }
-
-      // Ronde 1 atau cache miss → fetch langsung ke Gemini
+    
       const availablePlaces = placesList.filter(p => !playedPlaces.includes(p.name));
+      console.log('[prepareNextRound] Available places:', availablePlaces.length);
+    
       const userToken = state.token || 'guest';
-      const weights = await getPlaceWeights(state.city, userToken);
+      const weights = await getPlaceWeights(city, userToken);
       const targetPlace = pickWeightedPlace(availablePlaces, weights);
-
+      console.log('[prepareNextRound] Target place:', targetPlace?.name);
+    
+      console.log('[prepareNextRound] Calling Gemini...');
       const questionData = await generateGameClue(targetPlace, placesList);
+      console.log('[prepareNextRound] Gemini DONE:', questionData?.answer);
+    
       const method = pickMethod();
-
-      dispatch({ 
-        type: 'SET_QUESTION', 
+      dispatch({
+        type: 'SET_QUESTION',
         payload: { question: questionData, placeName: targetPlace.name, method }
       });
-
-      // Setelah dispatch SET_QUESTION, update weight:
-      incrementPlaceWeight(city, userToken, targetPlace.name);
-
-      // Set lingkaran radius dengan tengah yang sudah di-offset
+    
       const difficulty = questionData.difficulty || 'medium';
       const config = DIFFICULTY_CONFIG[difficulty];
       const offsetCenter = offsetCoordinate(targetPlace.lat, targetPlace.lng);
-
       dispatch({
         type: 'SET_CIRCLE',
         payload: {
@@ -242,13 +243,15 @@ export const useGameLogic = () => {
           radius: config.radius * 1000,
         }
       });
+    
     } catch (error) {
+      console.error('[prepareNextRound] ERROR:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
     } finally {
+      console.log('[prepareNextRound] FINALLY - setting loading false');
       dispatch({ type: 'SET_LOADING', payload: { status: false } });
     }
   };
-
   const submitAnswer = (method, data) => {
     if (!state.timerActive || !state.currentQuestion) return { isCorrect: false, mapResultStatus: null, textResultStatus: null };
     dispatch({ type: 'STOP_TIMER' });

@@ -53,22 +53,36 @@ const LandingPage = () => {
   const [isValidating, setIsValidating] = useState(false);
 
   const validateNickname = async (name) => {
-    try {
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
-      const response = await fetch(`${BACKEND_URL}/api/validate-nickname`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
-        },
-        body: JSON.stringify({ nickname: name }),
-      });
-      if (!response.ok) return true;
-      const data = await response.json();
-      return data.appropriate ?? true;
-    } catch {
-      return true;
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 5000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/validate-nickname`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+          },
+          body: JSON.stringify({ nickname: name }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) return true;
+        const data = await response.json();
+        return data.appropriate ?? true;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const isTimeout = err.name === 'AbortError';
+        console.warn(`[validateNickname] Attempt ${attempt} failed (${isTimeout ? 'timeout 5s' : err.message})`);
+        if (attempt === MAX_RETRIES) return true;
+        await new Promise(res => setTimeout(res, 500));
+      }
     }
+    return true;
   };
 
   useEffect(() => {
@@ -228,7 +242,7 @@ const LandingPage = () => {
           disabled={!localNickname.trim() || isValidating}
           className="w-full bg-secondary hover:bg-secondary-dark text-dark font-extrabold py-4 px-6 rounded-xl shadow-[0_4px_0_0_#D97706] hover:shadow-[0_2px_0_0_#D97706] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-[4px]"
         >
-          {isValidating ? <span className="animate-pulse">Memeriksa...</span> : <>Mulai Main <Play fill="currentColor" size={20} /></>}
+          {isValidating ? <span className="animate-pulse">Memeriksa...</span> : <>Pilih Kota <Play fill="currentColor" size={20} /></>}
         </motion.button>
       </motion.div>
 

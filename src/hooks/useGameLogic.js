@@ -89,13 +89,13 @@ export const useGameLogic = () => {
   const startGame = async (city) => {
     console.log('[startGame] START', city);
     dispatch({ type: 'SET_CITY', payload: city });
-    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `🗺️ Mencari tempat ikonik di ${city}...` } });
     dispatch({ type: 'SET_ERROR', payload: null });
-
+    
     try {
       cleanupOldCache();
-
+      
       console.log('[startGame] Fetching places...');
+      dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Mencari tempat ikonik di ${city}...` } });
       const places = await fetchPlacesByCity(city);
       console.log('[startGame] Places fetched:', places.length);
 
@@ -180,7 +180,7 @@ export const useGameLogic = () => {
     city = state.city
   ) => {
     console.log('[prepareNextRound] START round:', round);
-    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Gemini sedang membuat teka-teki...` } });
+    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Model AI sedang membuat teka-teki...` } });
 
     try {
       if (round > 1 && sessionId) {
@@ -221,7 +221,7 @@ export const useGameLogic = () => {
       const userToken = state.token || 'guest';
       const weights = await getPlaceWeights(city, userToken);
       const targetPlace = pickWeightedPlace(availablePlaces, weights);
-      console.log('[prepareNextRound] Target place:', targetPlace?.name);
+      // console.log('[prepareNextRound] Target place:', targetPlace?.name);
 
       console.log('[prepareNextRound] Calling Gemini...');
       const questionData = await generateGameClue(targetPlace, placesList);
@@ -435,7 +435,7 @@ export const useGameLogic = () => {
         state.placesList,
         state.playedPlaces,
         state.sessionId,
-        state.round + 1,  // ronde berikutnya
+        state.round + 1,
         state.city
       );
     }

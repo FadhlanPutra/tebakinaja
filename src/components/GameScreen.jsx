@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useGameLogic } from '../hooks/useGameLogic';
+// import { useGameLogic } from '../hooks/useGameLogic';
 import { GameContext } from '../context/GameContext';
 import MapView from './MapView';
 import ClueModal from './ClueModal';
@@ -112,7 +112,7 @@ const GameScreen = ({submitAnswer, nextRound}) => {
     !state.showClueModal &&
     state.timerActive;
     
-    if (state.isLoading && !question) {
+  if (state.isLoading && !question) {
     console.log('[GameScreen] isLoading:', state.isLoading, 'question:', state.currentQuestion?.answer);
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">

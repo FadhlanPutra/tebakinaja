@@ -159,12 +159,29 @@ const CitySelection = ({ startGame, onBack }) => {
             )}
           </button>
 
-          {state.isLoading && (
-            <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <span>{state.loadingMessage || 'Memuat...'}</span>
-            </div>
-          )}
+          {state.isLoading && (() => {
+            console.log('[Loading Overlay Rendered]', {
+              isLoading: state.isLoading,
+              message: state.loadingMessage,
+              screen: state.screen
+            });
+          
+            return (
+              <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            
+                  <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
+                    {state.loadingMessage || 'Memuat...'}
+                  </p>
+            
+                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                    Mohon tunggu sebentar
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </motion.div>

@@ -157,22 +157,36 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
   // ─── Helper: validasi nickname via OpenRouter ──────────────────────────────
 
   const validateNickname = async (name) => {
-    try {
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
-      const response = await fetch(`${BACKEND_URL}/api/validate-nickname`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
-        },
-        body: JSON.stringify({ nickname: name }),
-      });
-      if (!response.ok) return true; // fallback: allow
-      const data = await response.json();
-      return data.appropriate ?? true;
-    } catch {
-      return true; // fallback: allow jika error
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 5000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/validate-nickname`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+          },
+          body: JSON.stringify({ nickname: name }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) return true;
+        const data = await response.json();
+        return data.appropriate ?? true;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        const isTimeout = err.name === 'AbortError';
+        console.warn(`[validateNickname] Attempt ${attempt} failed (${isTimeout ? 'timeout 5s' : err.message})`);
+        if (attempt === MAX_RETRIES) return true; // fallback: allow setelah semua retry gagal
+        await new Promise(res => setTimeout(res, 500));
+      }
     }
+    return true;
   };
 
   // ─── Handler: simpan nickname ───────────────────────────────────────────────

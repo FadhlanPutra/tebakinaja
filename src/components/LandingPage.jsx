@@ -1,8 +1,8 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, HelpCircle, Trophy, Play, X, Settings } from 'lucide-react';
+import { MapPin, HelpCircle, Trophy, Play, X, Settings, UserRound } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
-import { getLeaderboard } from '../services/firebaseService';
+import { getLeaderboard, syncLeaderboardNickname } from '../services/firebaseService';
 import { updateUserData } from '../services/tokenService';
 import { authRestoreSession } from '../services/authService';
 import SettingsPage from './SettingsPage';
@@ -58,6 +58,7 @@ const LandingPage = () => {
     const TIMEOUT_MS = 5000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Memeriksa nickname...` } });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
       try {
@@ -71,17 +72,25 @@ const LandingPage = () => {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        if (!response.ok) return true;
+        if (!response.ok) {
+          dispatch({ type: 'SET_LOADING', payload: { status: false } });
+          return true;
+        }
         const data = await response.json();
+        dispatch({ type: 'SET_LOADING', payload: { status: false } });
         return data.appropriate ?? true;
       } catch (err) {
         clearTimeout(timeoutId);
         const isTimeout = err.name === 'AbortError';
         console.warn(`[validateNickname] Attempt ${attempt} failed (${isTimeout ? 'timeout 5s' : err.message})`);
-        if (attempt === MAX_RETRIES) return true;
+        if (attempt === MAX_RETRIES) {
+          dispatch({ type: 'SET_LOADING', payload: { status: false } });
+          return true; // fallback: allow setelah semua retry gagal
+        }
         await new Promise(res => setTimeout(res, 500));
       }
     }
+    dispatch({ type: 'SET_LOADING', payload: { status: false } });
     return true;
   };
 
@@ -117,9 +126,13 @@ const LandingPage = () => {
       return;
     }
     // Simpan nickname ke Firestore juga
-    dispatch({ type: 'SET_NICKNAME', payload: localNickname });
-    if (state.token) {
-      await updateUserData(state.token, { nickname: localNickname.trim() });
+    const trimmedNickname = localNickname.trim();
+    const identifier = state.googleUser?.uid || state.token;
+
+    dispatch({ type: 'SET_NICKNAME', payload: trimmedNickname });
+    if (identifier) {
+      await updateUserData(identifier, { nickname: trimmedNickname });
+      await syncLeaderboardNickname(identifier, trimmedNickname);
     }
     setIsValidating(false);
     dispatch({ type: 'SET_SCREEN', payload: 'CITY_SELECTION' });
@@ -177,6 +190,13 @@ const LandingPage = () => {
       >
         <Settings size={24} />
       </button>
+      <button
+        onClick={() => dispatch({ type: 'SET_SCREEN', payload: 'PROFILE' })}
+        className="absolute top-4 right-20 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-3 z-20 bg-white dark:bg-slate-800 rounded-full shadow-md border border-slate-100 dark:border-slate-700 transition-all duration-300 hover:scale-110"
+        title="Lihat profil"
+      >
+        <UserRound size={24} />
+      </button>
 
       <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #0D9488 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
 
@@ -233,6 +253,29 @@ const LandingPage = () => {
             <p className="mt-2 text-sm text-red-500 font-semibold">{nicknameError}</p>
           )}
         </motion.div>
+          {state.isLoading && (() => {
+            console.log('[Loading Overlay Rendered]', {
+              isLoading: state.isLoading,
+              message: state.loadingMessage,
+              screen: state.screen
+            });
+          
+            return (
+              <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            
+                  <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
+                    {state.loadingMessage || 'Memuat...'}
+                  </p>
+            
+                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                    Mohon tunggu sebentar
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
         <motion.button
           variants={itemVariants}

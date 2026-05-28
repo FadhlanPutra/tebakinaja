@@ -117,8 +117,10 @@ export const generateGameClue = async (placeData, otherPlaces) => {
 
       Untuk accepted_answers:
       - WAJIB isi dengan variasi nama yang SPESIFIK dan UNIK untuk tempat ini saja
+      - Berikan 8-15 variasi accepted_answers yang realistis dipakai orang lokal
       - JANGAN masukkan kata tunggal yang bersifat generik dan bisa merujuk ke banyak tempat lain
       - Setiap accepted_answer minimal harus terdiri dari 2 kata ATAU merupakan singkatan/akronim yang unik
+      - Sertakan variasi: nama lengkap, singkatan populer, ejaan tanpa tanda baca, alias lokal, dan versi tanpa awalan umum (misal tanpa kata "mall/plaza/the")
       - Contoh BENAR untuk "Mall Artha Gading": ["mall artha gading", "artha gading", "MAG"]
       - Contoh SALAH untuk "Mall Artha Gading": ["mall", "artha", "gading", "mal"]
       - Contoh BENAR untuk "Cibinong City Mall": ["cibinong city mall", "CCM", "cibinong mall"]

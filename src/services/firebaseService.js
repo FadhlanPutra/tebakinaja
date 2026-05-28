@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, doc, getDoc, updateDoc, increment, setDoc, where } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, doc, updateDoc, where, writeBatch } from "firebase/firestore";
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -52,6 +52,7 @@ export const saveScore = async (scoreData) => {
 
         if (scoreData.score > existingScore) {
           await updateDoc(existingDoc.ref, {
+            nickname: scoreData.nickname,
             score: scoreData.score,
             city: scoreData.city,
             rounds: scoreData.rounds,
@@ -59,7 +60,12 @@ export const saveScore = async (scoreData) => {
           });
           console.log('[Leaderboard] Score updated:', scoreData.score);
         } else {
-          console.log('[Leaderboard] Existing score higher, skipping update');
+          // Tetap sinkronkan profil publik (mis. nickname terbaru)
+          await updateDoc(existingDoc.ref, {
+            nickname: scoreData.nickname,
+            city: scoreData.city,
+          });
+          console.log('[Leaderboard] Existing score higher, profile synced');
         }
       }
     } else {
@@ -68,6 +74,33 @@ export const saveScore = async (scoreData) => {
     }
   } catch (error) {
     console.error('[Leaderboard] Failed to save score:', error);
+    throw error;
+  }
+};
+
+export const syncLeaderboardNickname = async (identifier, nickname) => {
+  if (!identifier || !nickname) return;
+
+  try {
+    const leaderboardRef = collection(db, 'leaderboard');
+    const tokenQuery = query(leaderboardRef, where('token', '==', identifier));
+    const uidQuery = query(leaderboardRef, where('uid', '==', identifier));
+
+    const [tokenDocs, uidDocs] = await Promise.all([getDocs(tokenQuery), getDocs(uidQuery)]);
+    const docsMap = new Map();
+
+    tokenDocs.forEach((snap) => docsMap.set(snap.id, snap.ref));
+    uidDocs.forEach((snap) => docsMap.set(snap.id, snap.ref));
+
+    if (docsMap.size === 0) return;
+
+    const batch = writeBatch(db);
+    docsMap.forEach((ref) => {
+      batch.update(ref, { nickname });
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error('[Leaderboard] Failed to sync nickname:', error);
     throw error;
   }
 };

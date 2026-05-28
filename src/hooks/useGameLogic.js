@@ -13,6 +13,58 @@ import {
 import confetti from 'canvas-confetti';
 import Fuse from 'fuse.js';
 
+const normalizeText = (value = '') =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const GENERIC_TOKENS = new Set([
+  'mall', 'mal', 'plaza', 'pusat', 'center', 'city', 'kota',
+  'taman', 'lapangan', 'pasar', 'alun', 'alun-alun', 'stasiun',
+  'terminal', 'jalan', 'jl', 'gedung', 'hotel', 'restoran',
+  'rumah', 'sakit', 'rs', 'museum', 'monumen', 'pantai',
+  'masjid', 'gereja', 'kampus', 'universitas', 'sekolah',
+]);
+
+const tokenWeight = (token) => (GENERIC_TOKENS.has(token) ? 0.35 : 1);
+const isSpecificSingleToken = (tokens) =>
+  tokens.length === 1 && tokens[0].length >= 4 && !GENERIC_TOKENS.has(tokens[0]);
+
+const buildAcceptedAnswers = (question = {}) => {
+  const baseAnswers = [
+    ...(question.accepted_answers || []),
+    question.answer,
+  ].filter(Boolean);
+
+  const normalizedSet = new Set(baseAnswers.map(normalizeText).filter(Boolean));
+  const expanded = new Set(normalizedSet);
+
+  normalizedSet.forEach((ans) => {
+    const words = ans.split(' ').filter(Boolean);
+    if (words.length >= 2) {
+      expanded.add(words.join(' '));
+      expanded.add(words.slice(0, -1).join(' '));
+      expanded.add(words.slice(1).join(' '));
+    }
+
+    // Ambil singkatan huruf awal untuk nama multi-kata (contoh: mall btm bogor -> mbb)
+    if (words.length >= 2) {
+      const acronym = words.map((w) => w[0]).join('');
+      if (acronym.length >= 2) expanded.add(acronym);
+    }
+
+    // Alias populer untuk prefiks umum
+    const stripped = ans.replace(/^(mall|mal|plaza|pusat|the)\s+/i, '').trim();
+    if (stripped.length >= 3) expanded.add(stripped);
+  });
+
+  return Array.from(expanded).filter(Boolean);
+};
+
 const pickMethod = () => {
   const rand = Math.random();
   if (rand < 0.40) return 'MAP';
@@ -280,9 +332,21 @@ export const useGameLogic = () => {
     // }
 
     if (method === 'TEXT') {
-      const acceptedAnswers = state.currentQuestion.accepted_answers ||
-                              [state.currentQuestion.answer];
-      const userInput = data.trim().toLowerCase();
+      const acceptedAnswers = buildAcceptedAnswers(state.currentQuestion);
+      const userInput = normalizeText(data);
+      const fullPoints = 100 + (state.timeLeft * 2);
+      const userTokens = userInput.split(' ').filter(Boolean);
+
+      const bestWeightedOverlap = acceptedAnswers.reduce((best, answer) => {
+        const answerTokens = answer.split(' ').filter(Boolean);
+        if (answerTokens.length === 0) return best;
+
+        const matchedWeight = answerTokens.reduce((sum, token) => (
+          userTokens.includes(token) ? sum + tokenWeight(token) : sum
+        ), 0);
+        const totalWeight = answerTokens.reduce((sum, token) => sum + tokenWeight(token), 0) || 1;
+        return Math.max(best, matchedWeight / totalWeight);
+      }, 0);
 
       const shortestAnswer = acceptedAnswers.reduce((a, b) =>
         a.length < b.length ? a : b
@@ -301,9 +365,13 @@ export const useGameLogic = () => {
         });
         const exactResult = fuse.search(userInput);
 
-        if (exactResult.length > 0) {
+        if (
+          exactResult.length > 0 &&
+          bestWeightedOverlap >= 0.85 &&
+          (userTokens.length >= 2 || isSpecificSingleToken(userTokens))
+        ) {
           isCorrect = true;
-          points = 100 + (state.timeLeft * 2);
+          points = fullPoints;
           textResultStatus = 'correct';
         } else {
           const fusePartial = new Fuse(acceptedAnswers, {
@@ -316,18 +384,29 @@ export const useGameLogic = () => {
           if (partialResult.length > 0) {
             const lengthRatio = userInput.length / shortestAnswer.length;
 
-            if (lengthRatio < 0.4) {
+            if (lengthRatio < 0.35 && bestWeightedOverlap < 0.4) {
               isCorrect = false;
               points = 0;
               textResultStatus = 'wrong';
-            } else if (lengthRatio < 0.6) {
+            } else if (
+              bestWeightedOverlap >= 0.85 &&
+              (userTokens.length >= 2 || isSpecificSingleToken(userTokens))
+            ) {
               isCorrect = true;
-              points = Math.round((100 + (state.timeLeft * 2)) * 0.3);
+              points = fullPoints;
+              textResultStatus = 'correct';
+            } else if (bestWeightedOverlap >= 0.6 || lengthRatio >= 0.6) {
+              isCorrect = true;
+              points = Math.round(fullPoints * 0.5);
+              textResultStatus = 'almost';
+            } else if (bestWeightedOverlap >= 0.35 || lengthRatio >= 0.45) {
+              isCorrect = true;
+              points = Math.round(fullPoints * 0.3);
               textResultStatus = 'almost';
             } else {
-              isCorrect = true;
-              points = Math.round((100 + (state.timeLeft * 2)) * 0.5);
-              textResultStatus = 'almost';
+              isCorrect = false;
+              points = 0;
+              textResultStatus = 'wrong';
             }
           } else {
             isCorrect = false;

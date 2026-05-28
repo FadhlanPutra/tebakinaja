@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Copy, Check, Trash2, LogOut } from 'lucide-react';
 import { importToken, generateToken, updateUserData, getUserData } from '../services/tokenService';
-import { db } from '../services/firebaseService';
+import { db, syncLeaderboardNickname } from '../services/firebaseService';
 import { authSignIn, authSignOut, getAuthProvider } from '../services/authService';
 import { useGoogleLogin } from '@react-oauth/google';
 import { GoogleLogin } from '@react-oauth/google';
@@ -162,6 +162,7 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
     const TIMEOUT_MS = 5000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Memeriksa nickname...` } });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
       try {
@@ -175,17 +176,25 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        if (!response.ok) return true;
+        if (!response.ok) {
+          dispatch({ type: 'SET_LOADING', payload: { status: false } });
+          return true;
+        }
         const data = await response.json();
+        dispatch({ type: 'SET_LOADING', payload: { status: false } });
         return data.appropriate ?? true;
       } catch (err) {
         clearTimeout(timeoutId);
         const isTimeout = err.name === 'AbortError';
         console.warn(`[validateNickname] Attempt ${attempt} failed (${isTimeout ? 'timeout 5s' : err.message})`);
-        if (attempt === MAX_RETRIES) return true; // fallback: allow setelah semua retry gagal
+        if (attempt === MAX_RETRIES) {
+          dispatch({ type: 'SET_LOADING', payload: { status: false } });
+          return true; // fallback: allow setelah semua retry gagal
+        }
         await new Promise(res => setTimeout(res, 500));
       }
     }
+    dispatch({ type: 'SET_LOADING', payload: { status: false } });
     return true;
   };
 
@@ -206,9 +215,13 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
       return;
     }
 
-    setNickname(inputNickname);
-    localStorage.setItem('tebakinaja_nickname', inputNickname);
-    await updateUserData(token, { nickname: inputNickname });
+    const trimmedNickname = inputNickname.trim();
+    const identifier = googleUser?.uid || token;
+
+    setNickname(trimmedNickname);
+    localStorage.setItem('tebakinaja_nickname', trimmedNickname);
+    await updateUserData(identifier, { nickname: trimmedNickname });
+    await syncLeaderboardNickname(identifier, trimmedNickname);
     setMessage('Nickname berhasil disimpan!');
     setTimeout(() => setMessage(''), 4000);
     setCooldownStorage('nickname', COOLDOWN_CONFIG.nickname);
@@ -594,6 +607,29 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
                 {cooldowns.nickname ? `⏳ ${formatSeconds(cooldowns.nickname)}` : 'Simpan'}
               </button>
             </div>
+            {state.isLoading && (() => {
+              console.log('[Loading Overlay Rendered]', {
+                isLoading: state.isLoading,
+                message: state.loadingMessage,
+                screen: state.screen
+              });
+            
+              return (
+                <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
+                  <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
+                      {state.loadingMessage || 'Memuat...'}
+                    </p>
+              
+                    <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                      Mohon tunggu sebentar
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
             {message && (
               <p className="mt-2 text-sm font-medium text-center text-blue-600 dark:text-blue-400">
                 {message}

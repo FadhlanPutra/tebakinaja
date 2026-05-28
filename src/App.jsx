@@ -5,6 +5,7 @@ import LandingPage from './components/LandingPage';
 import CitySelection from './components/CitySelection';
 import GameScreen from './components/GameScreen';
 import ResultScreen from './components/ResultScreen';
+import ProfilePage from './components/ProfilePage';
 import { AnimatePresence } from 'framer-motion';
 import { useGameLogic } from './hooks/useGameLogic';
 
@@ -45,6 +46,7 @@ const MainApp = () => {
     <main className="w-full min-h-screen relative overflow-hidden bg-light">
       <AnimatePresence mode="wait">
         {state.screen === 'HOME' && <LandingPage key="home" />}
+        {state.screen === 'PROFILE' && <ProfilePage key="profile" />}
         {state.screen === 'CITY_SELECTION' && 
           <CitySelection 
             key="city_selection" 

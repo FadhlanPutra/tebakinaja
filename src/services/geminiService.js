@@ -38,32 +38,52 @@ export const generateClue = async (prompt) => {
   } else {
     console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
 
-    // Timeout 30 detik — kalau tidak respond, throw error
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 20000;
 
-    const response = await fetch(BACKEND_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
-      },
-      body: JSON.stringify({ prompt }),
-      signal: controller.signal,
-    });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    clearTimeout(timeoutId);
+      try {
+        console.log(`[GeminiService] Attempt ${attempt}/${MAX_RETRIES}...`);
 
-    console.log('[GeminiService] Response status:', response.status);
-    console.log('[GeminiService] Response ok:', response.ok);
+        const response = await fetch(`${BACKEND_URL}/api/generate-clue`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+          },
+          body: JSON.stringify({ prompt }),
+          signal: controller.signal,
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Gagal memanggil backend proxy: ${response.status} ${response.statusText}. ${errorText}`);
+        clearTimeout(timeoutId);
+
+        console.log('[GeminiService] Response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          throw new Error(`Gagal memanggil backend proxy: ${response.status} ${response.statusText}. ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.text;
+
+      } catch (err) {
+        clearTimeout(timeoutId);
+
+        const isTimeout = err.name === 'AbortError';
+        console.warn(`[GeminiService] Attempt ${attempt} failed (${isTimeout ? 'timeout' : err.message})`);
+
+        if (attempt === MAX_RETRIES) {
+          throw new Error('Gagal mengambil data dari AI setelah beberapa percobaan. Coba lagi.');
+        }
+
+        console.log(`[GeminiService] Retrying in 1s...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
-
-    const data = await response.json();
-    return data.text;
   }
 };
 

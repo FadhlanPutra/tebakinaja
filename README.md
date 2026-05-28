@@ -69,10 +69,9 @@ Data tempat dari Google Places API di-cache di Firestore selama 7 hari per kota 
 | Frontend | React 18 + Vite |
 | Styling | Tailwind CSS + Framer Motion |
 | AI | Google Gemini (via Cloudflare Workers backend) |
-| Maps | Google Maps JavaScript API + Places API (New) |
+| Maps | Google Maps JavaScript API + Places API |
 | Database | Firebase Firestore |
 | Auth | Google OAuth + Anonymous Token System |
-| Backend | Cloudflare Workers + Hono |
 | Deploy | Google Cloud Run (Docker + Nginx) |
 | Icons | Lucide React |
 
@@ -207,9 +206,6 @@ tebakinaja/
 │   │   └── placeWeightService.js # Weighted RNG pemilihan tempat
 │   ├── App.jsx
 │   └── main.jsx
-├── server/                       # Cloudflare Workers backend
-│   └── src/
-│       └── index.ts
 ├── Dockerfile
 ├── cloudbuild.yaml
 ├── .env.example

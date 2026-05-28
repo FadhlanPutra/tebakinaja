@@ -199,6 +199,8 @@ const ClueModal = ({
                 {method === 'TEXT' && (
                   <div className="mb-4">
                     <input
+                      name='tebakan'
+                      id='tebakan'
                       type="text"
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}

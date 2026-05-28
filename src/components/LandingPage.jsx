@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, HelpCircle, Trophy, Play, X, Settings } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { getLeaderboard } from '../services/firebaseService';
+import { updateUserData } from '../services/tokenService';
 import { authRestoreSession } from '../services/authService';
 import SettingsPage from './SettingsPage';
 import { getOrCreateToken, getUserData } from '../services/tokenService';
@@ -48,6 +49,27 @@ const LandingPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   
   const [localNickname, setLocalNickname] = useState(state.nickname || '');
+  const [nicknameError, setNicknameError] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
+
+  const validateNickname = async (name) => {
+    try {
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
+      const response = await fetch(`${BACKEND_URL}/api/validate-nickname`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+        },
+        body: JSON.stringify({ nickname: name }),
+      });
+      if (!response.ok) return true;
+      const data = await response.json();
+      return data.appropriate ?? true;
+    } catch {
+      return true;
+    }
+  };
 
   useEffect(() => {
     getOrCreateToken().then(async (t) => {
@@ -70,9 +92,22 @@ const LandingPage = () => {
     restoreSession();
   }, [dispatch]);
 
-  const handleStart = () => {
-    if (!localNickname.trim()) return;
+  const handleStart = async () => {
+    if (!localNickname.trim() || isValidating) return;
+    setNicknameError('');
+    setIsValidating(true);
+    const isAppropriate = await validateNickname(localNickname.trim());
+    if (!isAppropriate) {
+      setNicknameError('Nickname tidak pantas, coba yang lain!');
+      setIsValidating(false);
+      return;
+    }
+    // Simpan nickname ke Firestore juga
     dispatch({ type: 'SET_NICKNAME', payload: localNickname });
+    if (state.token) {
+      await updateUserData(state.token, { nickname: localNickname.trim() });
+    }
+    setIsValidating(false);
     dispatch({ type: 'SET_SCREEN', payload: 'CITY_SELECTION' });
   };
 
@@ -171,24 +206,29 @@ const LandingPage = () => {
         <motion.div variants={itemVariants} className="w-full mb-6">
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 transition-colors duration-300">Siapa namamu?</label>
           <input 
+            name='nama'
+            id='nama'
             type="text" 
             placeholder="Masukkan nickname..."
             maxLength={20}
             value={localNickname}
-            onChange={(e) => setLocalNickname(e.target.value)}
+            onChange={(e) => { setLocalNickname(e.target.value); setNicknameError(''); }}
             className="w-full appearance-none bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-3 px-4 rounded-xl leading-tight focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-primary transition-colors duration-300 font-semibold"
           />
+          {nicknameError && (
+            <p className="mt-2 text-sm text-red-500 font-semibold">{nicknameError}</p>
+          )}
         </motion.div>
 
         <motion.button
           variants={itemVariants}
-          whileHover={localNickname.trim() ? { scale: 1.02 } : {}}
-          whileTap={localNickname.trim() ? { scale: 0.95 } : {}}
+          whileHover={localNickname.trim() && !isValidating ? { scale: 1.02 } : {}}
+          whileTap={localNickname.trim() && !isValidating ? { scale: 0.95 } : {}}
           onClick={handleStart}
-          disabled={!localNickname.trim()}
+          disabled={!localNickname.trim() || isValidating}
           className="w-full bg-secondary hover:bg-secondary-dark text-dark font-extrabold py-4 px-6 rounded-xl shadow-[0_4px_0_0_#D97706] hover:shadow-[0_2px_0_0_#D97706] hover:translate-y-[2px] transition-all flex items-center justify-center gap-2 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:translate-y-[4px]"
         >
-          Mulai Main <Play fill="currentColor" size={20} />
+          {isValidating ? <span className="animate-pulse">Memeriksa...</span> : <>Mulai Main <Play fill="currentColor" size={20} /></>}
         </motion.button>
       </motion.div>
 

@@ -59,31 +59,26 @@ const ResultScreen = () => {
     }
 
     if (state.score > 0) {
-      // Big confetti burst for finishing
-      const duration = 3000;
-      const end = Date.now() + duration;
-
-      const frame = () => {
-        confetti({
-          particleCount: 5,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0 },
-          colors: ['#0D9488', '#FBBF24']
-        });
-        confetti({
-          particleCount: 5,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1 },
-          colors: ['#0D9488', '#FBBF24']
-        });
-
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
-      };
-      frame();
+      // Tembak confetti 4x dengan interval 700ms — ringan tapi tetap meriah
+      const shots = [0, 700, 1400, 2100];
+      shots.forEach((delay) => {
+        setTimeout(() => {
+          confetti({
+            particleCount: 40,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ['#0D9488', '#FBBF24']
+          });
+          confetti({
+            particleCount: 40,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ['#0D9488', '#FBBF24']
+          });
+        }, delay);
+      });
     }
   }, [state.score]);
 

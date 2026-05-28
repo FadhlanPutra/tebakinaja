@@ -78,9 +78,12 @@ const GameScreen = ({submitAnswer, nextRound}) => {
         const timer = setInterval(() => {
           countdown--;
           if (countdownEl) {
-            countdownEl.textContent = countdown > 0
-              ? `Tombol aktif dalam ${countdown} detik...`
-              : 'Yakin ingin keluar?';
+            // countdownEl.textContent = countdown > 0
+            //   ? `Tombol aktif dalam ${countdown} detik...`
+            //   : 'Baca peringatan di atas sebelum melanjutkan.';
+            confirmBtn.textContent = countdown > 0
+              ? `${countdown} detik`
+              : 'Ya, hapus!';
           }
           if (countdown <= 0) {
             clearInterval(timer);

@@ -154,12 +154,41 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ─── Helper: validasi nickname via OpenRouter ──────────────────────────────
+
+  const validateNickname = async (name) => {
+    try {
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
+      const response = await fetch(`${BACKEND_URL}/api/validate-nickname`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+        },
+        body: JSON.stringify({ nickname: name }),
+      });
+      if (!response.ok) return true; // fallback: allow
+      const data = await response.json();
+      return data.appropriate ?? true;
+    } catch {
+      return true; // fallback: allow jika error
+    }
+  };
+
   // ─── Handler: simpan nickname ───────────────────────────────────────────────
 
   const handleSaveNickname = async () => {
     if (!inputNickname.trim()) {
       setMessage('Masukan nickname terlebih dahulu');
       setTimeout(() => setMessage(''), 4000)
+      return;
+    }
+
+    setMessage('Memeriksa nickname...');
+    const isAppropriate = await validateNickname(inputNickname.trim());
+    if (!isAppropriate) {
+      setMessage('Nickname tidak pantas, coba yang lain!');
+      setTimeout(() => setMessage(''), 4000);
       return;
     }
 
@@ -193,6 +222,7 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
     if (data) {
       setToken(data.token);
       setNickname(data.nickname || '');
+      setInputNickname(data.nickname || '');
       localStorage.setItem('tebakinaja_nickname', data.nickname || '');
       setMessage('Token berhasil diimpor!');
       setInputToken('');
@@ -364,12 +394,6 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
           ⚙️ Settings
         </h3>
 
-        {message && (
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30 rounded-xl text-sm font-medium text-center transition-colors duration-300">
-            {message}
-          </div>
-        )}
-
         <div className="space-y-6">
           {/* Dark Mode Toggle */}
           <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700 pb-4">
@@ -456,6 +480,8 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 transition-colors duration-300">Pindah Perangkat:</label>
                 <div className="flex gap-2">
                   <input
+                    name='token'
+                    id='token'
                     type="text"
                     value={inputToken}
                     onChange={handleTokenInput}
@@ -534,6 +560,8 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
             <div className="flex gap-2">
               <input
                 type="text"
+                name='nama'
+                id='nama'
                 value={inputNickname}
                 onChange={(e) => setInputNickname(e.target.value)}
                 placeholder="Nickname baru..."
@@ -552,6 +580,11 @@ const SettingsPage = ({ isOpen, onClose, token, setToken, nickname, setNickname 
                 {cooldowns.nickname ? `⏳ ${formatSeconds(cooldowns.nickname)}` : 'Simpan'}
               </button>
             </div>
+            {message && (
+              <p className="mt-2 text-sm font-medium text-center text-blue-600 dark:text-blue-400">
+                {message}
+              </p>
+            )}
           </div>
         </div>
       </motion.div>

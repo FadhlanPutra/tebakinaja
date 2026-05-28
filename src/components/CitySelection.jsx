@@ -6,17 +6,24 @@ import { GameContext } from '../context/GameContext';
 const cities = [
   // Jawa
   'Jakarta', 'Surabaya', 'Bandung', 'Yogyakarta', 'Semarang',
-  'Malang', 'Solo', 'Bogor', 'Depok', 'Tangerang',
+  'Malang', 'Solo', 'Bogor', 'Depok', 'Tangerang', 'Bekasi',
+  'Serang', 'Cilegon', 'Tasikmalaya', 'Cirebon', 'Sukabumi',
+  'Kediri', 'Madiun', 'Blitar', 'Mojokerto', 'Jember',
+  'Purwokerto', 'Pekalongan', 'Salatiga', 'Tegal',
   // Sumatera
   'Medan', 'Palembang', 'Pekanbaru', 'Padang', 'Batam',
+  'Banda Aceh', 'Jambi', 'Bengkulu', 'Bandar Lampung',
+  'Pangkal Pinang', 'Tanjung Pinang', 'Lubuk Linggau',
   // Kalimantan
   'Balikpapan', 'Banjarmasin', 'Pontianak', 'Samarinda',
+  'Palangka Raya', 'Tarakan', 'Bontang', 'Singkawang',
   // Sulawesi
-  'Makassar', 'Manado',
-  // Bali & NTB
-  'Denpasar', 'Mataram',
-  // Papua
-  'Jayapura',
+  'Makassar', 'Manado', 'Palu', 'Kendari', 'Gorontalo',
+  'Parepare', 'Palopo', 'Bitung', 'Kotamobagu',
+  // Bali & Nusa Tenggara
+  'Denpasar', 'Mataram', 'Kupang', 'Singaraja', 'Bima',
+  // Maluku & Papua
+  'Jayapura', 'Ambon', 'Sorong', 'Manokwari', 'Ternate',
 ];
 
 const CitySelection = ({ startGame, onBack }) => {
@@ -77,6 +84,8 @@ const CitySelection = ({ startGame, onBack }) => {
             <div className="relative">
               {/* Search input */}
               <input
+                name='kota'
+                id='kota'
                 type="text"
                 value={search}
                 onChange={(e) => {

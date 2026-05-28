@@ -180,13 +180,13 @@ export const useGameLogic = () => {
     city = state.city
   ) => {
     console.log('[prepareNextRound] START round:', round);
-    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `🤖 Gemini sedang membuat teka-teki...` } });
-  
+    dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Gemini sedang membuat teka-teki...` } });
+
     try {
       if (round > 1 && sessionId) {
         console.log('[prepareNextRound] Checking cache for round:', round);
         const cachedClue = await getClueFromCache(sessionId, round);
-      
+
         if (cachedClue) {
           console.log('[prepareNextRound] Cache HIT round:', round);
           dispatch({
@@ -197,7 +197,7 @@ export const useGameLogic = () => {
               method: cachedClue.method || pickMethod(),
             }
           });
-        
+
           if (cachedClue.difficulty) {
             const config = DIFFICULTY_CONFIG[cachedClue.difficulty];
             const offsetCenter = offsetCoordinate(cachedClue.lat, cachedClue.lng);
@@ -211,28 +211,28 @@ export const useGameLogic = () => {
           }
           return;
         }
-      
+
         console.log('[prepareNextRound] Cache MISS round:', round);
       }
-    
+
       const availablePlaces = placesList.filter(p => !playedPlaces.includes(p.name));
       console.log('[prepareNextRound] Available places:', availablePlaces.length);
-    
+
       const userToken = state.token || 'guest';
       const weights = await getPlaceWeights(city, userToken);
       const targetPlace = pickWeightedPlace(availablePlaces, weights);
       console.log('[prepareNextRound] Target place:', targetPlace?.name);
-    
+
       console.log('[prepareNextRound] Calling Gemini...');
       const questionData = await generateGameClue(targetPlace, placesList);
       console.log('[prepareNextRound] Gemini DONE:', questionData?.answer);
-    
+
       const method = pickMethod();
       dispatch({
         type: 'SET_QUESTION',
         payload: { question: questionData, placeName: targetPlace.name, method }
       });
-    
+
       const difficulty = questionData.difficulty || 'medium';
       const config = DIFFICULTY_CONFIG[difficulty];
       const offsetCenter = offsetCoordinate(targetPlace.lat, targetPlace.lng);
@@ -243,7 +243,7 @@ export const useGameLogic = () => {
           radius: config.radius * 1000,
         }
       });
-    
+
     } catch (error) {
       console.error('[prepareNextRound] ERROR:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });

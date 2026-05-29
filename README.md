@@ -11,7 +11,7 @@ TebakinAja adalah web game teka-teki berbasis lokasi dengan kearifan lokal Indon
 ## 🎮 Cara Main
 
 1. **Masukkan nickname** di halaman utama
-2. **Pilih kota** yang ingin kamu tantang — tersedia 25+ kota besar Indonesia
+2. **Pilih kota** yang ingin kamu tantang — tersedia 57+ kota besar Indonesia
 3. **Baca clue** yang di-generate AI tentang sebuah tempat ikonik
 4. **Tebak lokasinya** — sistem menentukan metode jawab setiap ronde:
    - 📍 **Klik di peta** — lingkaran radius ditampilkan, skor berdasarkan seberapa dekat tebakanmu
@@ -132,30 +132,6 @@ npm run dev
 6. Buka `http://localhost:3000`
 
 ---
-
-<!-- ## 🔧 Backend (Cloudflare Workers)
-
-Backend digunakan untuk menyembunyikan Gemini API key dari frontend.
-
-```bash
-cd server
-npm install
-```
-
-Set secrets:
-```bash
-wrangler secret put GEMINI_API_KEY
-wrangler secret put APP_SECRET_TOKEN
-wrangler secret put ALLOWED_ORIGINS
-# Nilai ALLOWED_ORIGINS: http://localhost:3000,https://your-domain.run.app
-```
-
-Deploy:
-```bash
-npm run deploy
-```
-
---- -->
 
 ## 🐳 Deploy ke Google Cloud Run
 

@@ -69,6 +69,7 @@ const GameScreen = ({submitAnswer, nextRound}) => {
       didOpen: () => {
         const confirmBtn = Swal.getConfirmButton();
         const countdownEl = document.getElementById('swal-exit-countdown');
+        confirmBtn.textContent = `${countdown} detik`
         confirmBtn.disabled = true;
         confirmBtn.style.opacity = '0.4';
         confirmBtn.style.cursor = 'not-allowed';
@@ -78,7 +79,7 @@ const GameScreen = ({submitAnswer, nextRound}) => {
           if (countdownEl) {
             confirmBtn.textContent = countdown > 0
               ? `${countdown} detik`
-              : 'Ya, hapus!';
+              : 'Ya, keluar!';
           }
           if (countdown <= 0) {
             clearInterval(timer);

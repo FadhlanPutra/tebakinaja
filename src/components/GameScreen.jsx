@@ -58,7 +58,7 @@ const GameScreen = ({submitAnswer, nextRound}) => {
   
     const result = await Swal.fire({
       title: 'Keluar dari Game?',
-      html: `Progress kamu akan hilang dan tidak tersimpan.<br/><br/><b id="swal-exit-countdown">Tombol aktif dalam ${countdown} detik...</b>`,
+      html: `Progress kamu akan hilang dan tidak tersimpan.<br/><br/><span id="swal-exit-countdown"></span>`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-// import { useGameLogic } from '../hooks/useGameLogic';
 import { Trophy, RotateCcw, CheckCircle, XCircle, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { saveScore, updateUserStats, getLeaderboard } from '../services/firebaseService';
@@ -11,7 +10,6 @@ import { useContext } from 'react';
 import { GameContext } from '../context/GameContext';
 
 const ResultScreen = () => {
-  // const { state, resetGame } = useGameLogic();
   const { state, dispatch } = useContext(GameContext);
   const resetGame = () => dispatch({ type: 'RESET_GAME' });
   const scoreSaved = useRef(false);

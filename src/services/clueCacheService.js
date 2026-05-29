@@ -16,7 +16,7 @@ export const saveCluesToCache = async (sessionId, clues) => {
       used_rounds: [],  // track ronde mana yang sudah diambil
       clues,
     });
-    console.log(`[ClueCache] Saved ${Object.keys(clues).length} clues for session ${sessionId}`);
+    // console.log(`[ClueCache] Saved ${Object.keys(clues).length} clues for session ${sessionId}`);
   } catch (error) {
     console.error('[ClueCache] Failed to save clues:', error);
   }
@@ -59,7 +59,7 @@ export const getClueFromCache = async (sessionId, round) => {
 export const deleteSessionCache = async (sessionId) => {
   try {
     await deleteDoc(doc(db, CACHE_COLLECTION, sessionId));
-    console.log(`[ClueCache] Deleted cache for session ${sessionId}`);
+    // console.log(`[ClueCache] Deleted cache for session ${sessionId}`);
   } catch (error) {
     console.error('[ClueCache] Failed to delete cache:', error);
   }
@@ -91,7 +91,7 @@ export const cleanupOldCache = async () => {
 
     if (deletePromises.length > 0) {
       await Promise.all(deletePromises);
-      console.log(`[ClueCache] Cleaned up ${deletePromises.length} old cache entries`);
+      // console.log(`[ClueCache] Cleaned up ${deletePromises.length} old cache entries`);
     }
   } catch (error) {
     console.error('[ClueCache] Cleanup failed:', error);

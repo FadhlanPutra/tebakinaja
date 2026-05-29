@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useContext } from 'react';
-// import { useGameLogic } from '../hooks/useGameLogic';
 import { GameContext } from '../context/GameContext';
 import MapView from './MapView';
 import ClueModal from './ClueModal';
@@ -9,7 +8,6 @@ import Swal from 'sweetalert2';
 import { LogOut } from 'lucide-react';
 
 const GameScreen = ({submitAnswer, nextRound}) => {
-  // const { state, submitAnswer, nextRound } = useGameLogic();
   const { dispatch } = useContext(GameContext);
   const { state } = useContext(GameContext);
   const [mapGuess, setMapGuess] = useState(null);
@@ -78,9 +76,6 @@ const GameScreen = ({submitAnswer, nextRound}) => {
         const timer = setInterval(() => {
           countdown--;
           if (countdownEl) {
-            // countdownEl.textContent = countdown > 0
-            //   ? `Tombol aktif dalam ${countdown} detik...`
-            //   : 'Baca peringatan di atas sebelum melanjutkan.';
             confirmBtn.textContent = countdown > 0
               ? `${countdown} detik`
               : 'Ya, hapus!';
@@ -113,8 +108,6 @@ const GameScreen = ({submitAnswer, nextRound}) => {
     state.timerActive;
     
   if (state.isLoading && !question) {
-    console.log('[GameScreen] isLoading:', state.isLoading, 'question:', state.currentQuestion?.answer);
-    return (
       <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
         <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -126,7 +119,6 @@ const GameScreen = ({submitAnswer, nextRound}) => {
           </p>
         </div>
       </div>
-    );
   }
 
   return (

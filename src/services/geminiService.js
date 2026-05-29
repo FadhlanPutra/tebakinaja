@@ -11,7 +11,7 @@ export const generateClue = async (prompt) => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
   if (API_KEY) {
-    console.log('[GeminiService] Running in Direct Mode (Frontend SDK)');
+    // console.log('[GeminiService] Running in Direct Mode (Frontend SDK)');
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
 
@@ -36,7 +36,7 @@ export const generateClue = async (prompt) => {
 
     return result.response.text();
   } else {
-    console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
+    // console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
 
     const MAX_RETRIES = 3;
     const TIMEOUT_MS = 20000;
@@ -46,7 +46,7 @@ export const generateClue = async (prompt) => {
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
       try {
-        console.log(`[GeminiService] Attempt ${attempt}/${MAX_RETRIES}...`);
+        // console.log(`[GeminiService] Attempt ${attempt}/${MAX_RETRIES}...`);
 
         const response = await fetch(`${BACKEND_URL}/api/generate-clue`, {
           method: 'POST',
@@ -60,7 +60,7 @@ export const generateClue = async (prompt) => {
 
         clearTimeout(timeoutId);
 
-        console.log('[GeminiService] Response status:', response.status);
+        // console.log('[GeminiService] Response status:', response.status);
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => '');
@@ -80,7 +80,7 @@ export const generateClue = async (prompt) => {
           throw new Error('Gagal mengambil data dari AI setelah beberapa percobaan. Coba lagi.');
         }
 
-        console.log(`[GeminiService] Retrying in 1s...`);
+        // console.log(`[GeminiService] Retrying in 1s...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }

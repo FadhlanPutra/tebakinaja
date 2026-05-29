@@ -58,14 +58,14 @@ export const saveScore = async (scoreData) => {
             rounds: scoreData.rounds,
             created_at: scoreData.created_at,
           });
-          console.log('[Leaderboard] Score updated:', scoreData.score);
+          // console.log('[Leaderboard] Score updated:', scoreData.score);
         } else {
           // Tetap sinkronkan profil publik (mis. nickname terbaru)
           await updateDoc(existingDoc.ref, {
             nickname: scoreData.nickname,
             city: scoreData.city,
           });
-          console.log('[Leaderboard] Existing score higher, profile synced');
+          // console.log('[Leaderboard] Existing score higher, profile synced');
         }
       }
     } else {

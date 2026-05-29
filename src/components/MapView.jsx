@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleMap, Marker, Circle, Polyline } from '@react-google-maps/api';
-// import { useGameLogic } from '../hooks/useGameLogic';
 import { useContext } from 'react';
 import { GameContext } from '../context/GameContext';
 
@@ -37,7 +36,6 @@ const LIGHT_MAP_STYLE = [
 ];
 
 const MapView = ({ onMapClick, isClickable, mapGuess }) => {
-  // const { setMapInstance, state } = useGameLogic();
   const { state, dispatch } = useContext(GameContext);
   const setMapInstance = (map) => dispatch({ type: 'SET_MAP_INSTANCE', payload: map });
 

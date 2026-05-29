@@ -159,14 +159,7 @@ const CitySelection = ({ startGame, onBack }) => {
             )}
           </button>
 
-          {state.isLoading && (() => {
-            console.log('[Loading Overlay Rendered]', {
-              isLoading: state.isLoading,
-              message: state.loadingMessage,
-              screen: state.screen
-            });
-          
-            return (
+          {state.isLoading && (
               <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
                   <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -180,8 +173,7 @@ const CitySelection = ({ startGame, onBack }) => {
                   </p>
                 </div>
               </div>
-            );
-          })()}
+          )}
         </div>
       </div>
     </motion.div>

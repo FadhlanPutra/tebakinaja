@@ -25,13 +25,13 @@ export const fetchPlacesByCity = async (city) => {
       const isCacheValid = (Date.now() - fetchedAt) < CACHE_DURATION_MS;
 
       if (isCacheValid && data.places && data.places.length > 0) {
-        console.log(`[PlacesService] Cache hit untuk kota: ${city} (${data.places.length} tempat)`);
+        // console.log(`[PlacesService] Cache hit untuk kota: ${city} (${data.places.length} tempat)`);
         return data.places;
       }
 
-      console.log(`[PlacesService] Cache expired untuk kota: ${city}, fetch ulang...`);
+      // console.log(`[PlacesService] Cache expired untuk kota: ${city}, fetch ulang...`);
     } else {
-      console.log(`[PlacesService] Tidak ada cache untuk kota: ${city}, fetch baru...`);
+      // console.log(`[PlacesService] Tidak ada cache untuk kota: ${city}, fetch baru...`);
     }
   } catch (error) {
     console.error('[PlacesService] Firestore cache read error:', error);
@@ -87,7 +87,7 @@ export const fetchPlacesByCity = async (city) => {
 
         if (places && places.length > 0) {
           allPlaces.push(...places);
-          console.log(`[PlacesService] "${query}" → ${places.length} tempat ditemukan`);
+          // console.log(`[PlacesService] "${query}" → ${places.length} tempat ditemukan`);
         }
       } catch (queryError) {
         console.warn(`[PlacesService] Query gagal: "${query}"`, queryError);
@@ -155,7 +155,7 @@ export const fetchPlacesByCity = async (city) => {
         used_count: 0,
       }));
 
-    console.log(`[PlacesService] Total ${mappedPlaces.length} tempat valid ditemukan di ${city}`);
+    // console.log(`[PlacesService] Total ${mappedPlaces.length} tempat valid ditemukan di ${city}`);
 
     // Kalau hasil terlalu sedikit setelah filter, log warning
     if (mappedPlaces.length < 5) {
@@ -170,7 +170,7 @@ export const fetchPlacesByCity = async (city) => {
         city: city,
         places: mappedPlaces,
       });
-      console.log(`[PlacesService] Cache tersimpan untuk kota: ${city}`);
+      // console.log(`[PlacesService] Cache tersimpan untuk kota: ${city}`);
     } catch (cacheError) {
       console.error('[PlacesService] Firestore cache write error:', cacheError);
       // Tetap lanjut tanpa crash kalau gagal simpan cache

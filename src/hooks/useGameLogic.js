@@ -139,17 +139,17 @@ export const useGameLogic = () => {
   };
 
   const startGame = async (city) => {
-    console.log('[startGame] START', city);
+    // console.log('[startGame] START', city);
     dispatch({ type: 'SET_CITY', payload: city });
     dispatch({ type: 'SET_ERROR', payload: null });
     
     try {
       cleanupOldCache();
       
-      console.log('[startGame] Fetching places...');
+      // console.log('[startGame] Fetching places...');
       dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Mencari tempat ikonik di ${city}...` } });
       const places = await fetchPlacesByCity(city);
-      console.log('[startGame] Places fetched:', places.length);
+      // console.log('[startGame] Places fetched:', places.length);
 
       if (places.length < state.maxRounds) {
         throw new Error("Tidak menemukan cukup landmark di kota ini.");
@@ -159,9 +159,9 @@ export const useGameLogic = () => {
       dispatch({ type: 'SET_SESSION_ID', payload: sessionId });
       dispatch({ type: 'START_GAME', payload: { placesList: places } });
 
-      console.log('[startGame] Calling prepareNextRound...');
+      // console.log('[startGame] Calling prepareNextRound...');
       await prepareNextRound(places, [], sessionId, 1, city);
-      console.log('[startGame] prepareNextRound DONE');
+      // console.log('[startGame] prepareNextRound DONE');
 
       prefetchRemainingClues(places, [places[0]?.name], sessionId, city);
 
@@ -216,7 +216,7 @@ export const useGameLogic = () => {
 
       // Simpan semua ke Firestore cache sekaligus
       await saveCluesToCache(sessionId, clues);
-      console.log('[GameLogic] Background prefetch complete');
+      // console.log('[GameLogic] Background prefetch complete');
 
     } catch (error) {
       console.error('[GameLogic] Background prefetch failed:', error);
@@ -231,16 +231,16 @@ export const useGameLogic = () => {
     round = state.round,
     city = state.city
   ) => {
-    console.log('[prepareNextRound] START round:', round);
+    // console.log('[prepareNextRound] START round:', round);
     dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Model AI sedang membuat teka-teki...` } });
 
     try {
       if (round > 1 && sessionId) {
-        console.log('[prepareNextRound] Checking cache for round:', round);
+        // console.log('[prepareNextRound] Checking cache for round:', round);
         const cachedClue = await getClueFromCache(sessionId, round);
 
         if (cachedClue) {
-          console.log('[prepareNextRound] Cache HIT round:', round);
+          // console.log('[prepareNextRound] Cache HIT round:', round);
           dispatch({
             type: 'SET_QUESTION',
             payload: {
@@ -264,20 +264,20 @@ export const useGameLogic = () => {
           return;
         }
 
-        console.log('[prepareNextRound] Cache MISS round:', round);
+        // console.log('[prepareNextRound] Cache MISS round:', round);
       }
 
       const availablePlaces = placesList.filter(p => !playedPlaces.includes(p.name));
-      console.log('[prepareNextRound] Available places:', availablePlaces.length);
+      // console.log('[prepareNextRound] Available places:', availablePlaces.length);
 
       const userToken = state.token || 'guest';
       const weights = await getPlaceWeights(city, userToken);
       const targetPlace = pickWeightedPlace(availablePlaces, weights);
       // console.log('[prepareNextRound] Target place:', targetPlace?.name);
 
-      console.log('[prepareNextRound] Calling Gemini...');
+      // console.log('[prepareNextRound] Calling Gemini...');
       const questionData = await generateGameClue(targetPlace, placesList);
-      console.log('[prepareNextRound] Gemini DONE:', questionData?.answer);
+      // console.log('[prepareNextRound] Gemini DONE:', questionData?.answer);
 
       const method = pickMethod();
       dispatch({
@@ -300,7 +300,7 @@ export const useGameLogic = () => {
       console.error('[prepareNextRound] ERROR:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
     } finally {
-      console.log('[prepareNextRound] FINALLY - setting loading false');
+      // console.log('[prepareNextRound] FINALLY - setting loading false');
       dispatch({ type: 'SET_LOADING', payload: { status: false } });
     }
   };
@@ -313,23 +313,6 @@ export const useGameLogic = () => {
     let distanceInfo = null;
     let mapResultStatus = null;
     let textResultStatus = null;
-
-    // if (method === 'TEXT') {
-    //   const acceptedAnswers = state.currentQuestion.accepted_answers || [state.currentQuestion.answer];
-    //   const fuse = new Fuse(acceptedAnswers, { threshold: 0.35 });
-    //   const result = fuse.search(data.trim());
-    //   isCorrect = result.length > 0;
-    //   if (isCorrect) points = 100 + (state.timeLeft * 2);
-    // } else if (method === 'MCQ') {
-    //   isCorrect = data === state.currentQuestion.answer;
-    //   if (isCorrect) points = 100 + (state.timeLeft * 2);
-    // } else if (method === 'MAP') {
-    //   const { lat, lng } = data;
-    //   const distance = getDistanceFromLatLonInKm(lat, lng, state.currentQuestion.lat, state.currentQuestion.lng);
-    //   isCorrect = true;
-    //   points = calculateMapScore(distance);
-    //   distanceInfo = distance.toFixed(1);
-    // }
 
     if (method === 'TEXT') {
       const acceptedAnswers = buildAcceptedAnswers(state.currentQuestion);

@@ -54,8 +54,8 @@ const LandingPage = () => {
 
   const validateNickname = async (name) => {
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL?.replace('/api/generate-clue', '') || '';
-    const MAX_RETRIES = 3;
-    const TIMEOUT_MS = 5000;
+    const MAX_RETRIES = 1;
+    const TIMEOUT_MS = 10000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       dispatch({ type: 'SET_LOADING', payload: { status: true, message: `Memeriksa nickname...` } });
@@ -253,29 +253,22 @@ const LandingPage = () => {
             <p className="mt-2 text-sm text-red-500 font-semibold">{nicknameError}</p>
           )}
         </motion.div>
-          {state.isLoading && (() => {
-            console.log('[Loading Overlay Rendered]', {
-              isLoading: state.isLoading,
-              message: state.loadingMessage,
-              screen: state.screen
-            });
-          
-            return (
-              <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
-                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            
-                  <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
-                    {state.loadingMessage || 'Memuat...'}
-                  </p>
-            
-                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
-                    Mohon tunggu sebentar
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
+
+        {state.isLoading && (
+          <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        
+              <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
+                {state.loadingMessage || 'Memuat...'}
+              </p>
+        
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                Mohon tunggu sebentar
+              </p>
+            </div>
+          </div>
+        )}
 
         <motion.button
           variants={itemVariants}

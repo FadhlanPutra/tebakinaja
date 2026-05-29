@@ -65,13 +65,18 @@ const ClueModal = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 60 }}
           transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-[480px]"
+          className="fixed z-40 flex flex-col pointer-events-none
+            game-modal-bottom left-3 right-3 mx-auto w-auto max-w-[480px]
+            max-h-[calc(100dvh-3rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-0.5rem)]
+            md:bottom-5 md:left-1/2 md:right-auto md:mx-0 md:-translate-x-1/2
+            md:w-[calc(100%-1.5rem)] md:max-w-[480px]
+            md:max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1.25rem)]"
         >
-          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-600 transition-colors duration-300 overflow-hidden">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-600 transition-colors duration-300 overflow-hidden flex flex-col min-h-0 max-h-full pointer-events-auto">
 
             {/* ── HASIL (setelah jawab / waktu habis) ───────────────── */}
             {isResultMode ? (
-              <div className="p-6">
+              <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar overscroll-contain">
                 <div className="text-center mb-4">
                   {/* TEXT mode — benar */}
                   {lastAnswerStatus === 'correct' && method === 'TEXT' && textResultStatus === 'correct' && (
@@ -158,9 +163,9 @@ const ClueModal = ({
                   )}
                 </div>
 
-                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 p-4 rounded-2xl text-sm text-left mb-5 flex gap-3 border border-blue-100 dark:border-blue-800 transition-colors duration-300">
+                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 p-3 sm:p-4 rounded-2xl text-xs sm:text-sm text-left mb-4 sm:mb-5 flex gap-2 sm:gap-3 border border-blue-100 dark:border-blue-800 transition-colors duration-300">
                   <Info className="shrink-0 mt-0.5" size={18} />
-                  <p><strong>Tahukah Kamu?</strong> {question.fun_fact}</p>
+                  <p className="break-words [overflow-wrap:anywhere]"><strong>Tahukah Kamu?</strong> {question.fun_fact}</p>
                 </div>
 
                 <motion.button
@@ -176,23 +181,23 @@ const ClueModal = ({
 
             ) : (
               /* ── CLUE + INPUT ─────────────────────────────────────── */
-              <div className="p-5">
+              <div className="p-4 sm:p-5 overflow-y-auto custom-scrollbar overscroll-contain min-h-0">
                 {/* Header clue */}
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-heading font-bold text-primary dark:text-primary-light flex items-center gap-1.5 text-sm transition-colors duration-300">
-                    <AlertCircle size={15} />
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <h2 className="font-heading font-bold text-primary dark:text-primary-light flex items-center gap-1.5 text-xs sm:text-sm transition-colors duration-300 shrink-0">
+                    <AlertCircle size={15} className="shrink-0" />
                     PETUNJUK LOKASI
                   </h2>
                   {question.difficulty && (
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase border transition-colors duration-300 ${getDifficultyStyle(question.difficulty)}`}>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold uppercase border transition-colors duration-300 ${getDifficultyStyle(question.difficulty)}`}>
                       {question.difficulty}
                     </span>
                   )}
                 </div>
 
                 {/* Teks clue */}
-                <p className="text-slate-700 dark:text-slate-200 text-base leading-relaxed font-medium italic mb-4 transition-colors duration-300">
-                  "{question.clue || 'Memuat petunjuk...'}"
+                <p className="text-slate-700 dark:text-slate-200 text-sm sm:text-base leading-relaxed font-medium italic mb-4 transition-colors duration-300 break-words [overflow-wrap:anywhere]">
+                  &ldquo;{question.clue || 'Memuat petunjuk...'}&rdquo;
                 </p>
 
                 {/* ── TEXT mode ─────────────────────────────────────── */}
@@ -215,13 +220,13 @@ const ClueModal = ({
 
                 {/* ── MCQ mode ──────────────────────────────────────── */}
                 {method === 'MCQ' && (
-                  <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 mb-4">
                     {question.choices?.map((choice, idx) => (
                       <button
                         key={idx}
                         onClick={() => setSelectedChoice(choice)}
                         disabled={!timerActive}
-                        className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all text-left duration-300
+                        className={`p-3 rounded-xl border-2 text-xs sm:text-sm font-semibold transition-all text-left duration-300 break-words
                           ${selectedChoice === choice
                             ? 'border-primary bg-primary-light dark:bg-primary/20 text-primary-dark dark:text-primary'
                             : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:border-primary-light hover:bg-slate-50 dark:hover:bg-slate-600'}
@@ -252,13 +257,13 @@ const ClueModal = ({
                 )}
 
                 {/* ── Tombol aksi ───────────────────────────────────── */}
-                <div className="flex gap-2">
+                <div className="flex flex-col-reverse sm:flex-row gap-2 sticky bottom-0 bg-white/95 dark:bg-slate-800/95 pt-2 -mx-4 px-4 sm:static sm:mx-0 sm:px-0 sm:pt-0 sm:bg-transparent">
                   <motion.button
                     whileHover={isSubmitDisabled ? {} : { scale: 1.02 }}
                     whileTap={isSubmitDisabled ? {} : { scale: 0.97 }}
                     onClick={handleSubmit}
                     disabled={isSubmitDisabled}
-                    className="flex-1 bg-primary hover:bg-primary-dark text-white font-extrabold py-3.5 px-4 rounded-2xl shadow-[0_4px_0_0_#0F766E] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none disabled:translate-y-[4px] disabled:cursor-not-allowed"
+                    className="flex-1 bg-primary hover:bg-primary-dark text-white font-extrabold py-3 sm:py-3.5 px-4 rounded-2xl shadow-[0_4px_0_0_#0F766E] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:shadow-none disabled:translate-y-[4px] disabled:cursor-not-allowed text-sm sm:text-base"
                   >
                     TEBAK 🎯
                   </motion.button>
@@ -269,9 +274,9 @@ const ClueModal = ({
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={handleHideModal}
-                      className="bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center gap-1.5 text-sm whitespace-nowrap duration-300"
+                      className="bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-bold py-3 sm:py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-1.5 text-sm duration-300"
                     >
-                      <MapPin size={15} /> Pilih Lokasi
+                      <MapPin size={15} className="shrink-0" /> Pilih Lokasi
                     </motion.button>
                   )}
                 </div>

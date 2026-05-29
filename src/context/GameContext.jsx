@@ -68,7 +68,8 @@ const gameReducer = (state, action) => {
         score: 0,
         playedPlaces: [],
         funFacts: [],
-        error: null
+        error: null,
+        timerActive: !!state.currentQuestion,
       };
     case 'SET_QUESTION':
       return {
@@ -81,7 +82,7 @@ const gameReducer = (state, action) => {
         circleCenter: null,   // reset setiap ronde baru
         circleRadius: 3000,
         timeLeft: 60,
-        timerActive: true,
+        timerActive: action.payload.activateTimer ?? true,
       };
     case 'SET_CIRCLE':
       return {
@@ -102,7 +103,13 @@ const gameReducer = (state, action) => {
         timerActive: false
       };
     case 'NEXT_ROUND':
-      return { ...state, round: state.round + 1, currentQuestion: null };
+      return {
+        ...state,
+        round: state.round + 1,
+        currentQuestion: null,
+        timerActive: false,
+        showClueModal: true,
+      };
     case 'END_GAME':
       return { ...state, screen: 'RESULT', timerActive: false };
     case 'RESET_GAME':

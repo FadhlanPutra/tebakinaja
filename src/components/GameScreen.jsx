@@ -107,66 +107,85 @@ const GameScreen = ({submitAnswer, nextRound}) => {
     state.answerMethod === 'MAP' &&
     !state.showClueModal &&
     state.timerActive;
-    
-  if (state.isLoading && !question) {
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-900/40 z-50">
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center transition-colors duration-300">
-            {state.loadingMessage || 'Memuat...'}
-          </p>
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
-            Mohon tunggu sebentar
-          </p>
-        </div>
+
+  // Jangan tampilkan peta sebelum clue dari server siap — hindari layar kosong
+  if (!question) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 z-50 supports-[height:100dvh]:h-[100dvh] h-screen">
+        {state.error ? (
+          <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl max-w-sm mx-4 border border-slate-100 dark:border-slate-700/50 text-center">
+            <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Gagal memuat ronde</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-5">{state.error}</p>
+            <button
+              onClick={() => dispatch({ type: 'RESET_GAME' })}
+              className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl transition-colors"
+            >
+              Kembali ke Menu
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col items-center gap-4 border border-slate-100 dark:border-slate-700/50 mx-4 max-w-sm">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-lg font-bold text-slate-700 dark:text-slate-200 text-center">
+              {state.loadingMessage || 'Menyiapkan teka-teki...'}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+              AI sedang membuat clue untuk ronde ini
+            </p>
+          </div>
+        )}
       </div>
+    );
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-hidden supports-[height:100dvh]:h-[100dvh] h-screen">
       {/* ── Header tipis fixed di atas ────────────────────────────── */}
-      <header className="absolute top-0 left-0 right-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700/50 shadow-sm px-4 h-14 flex items-center justify-between transition-colors duration-300 text-slate-800 dark:text-slate-200">
-        <div className="flex items-center gap-2">
-          <span>TebakinAja 🗺️</span>
+      <header className="absolute top-0 left-0 right-0 z-30 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-slate-100 dark:border-slate-700/50 shadow-sm px-2.5 sm:px-4 h-12 sm:h-14 flex items-center justify-between gap-2 transition-colors duration-300 text-slate-800 dark:text-slate-200 pt-[env(safe-area-inset-top,0px)] min-h-[calc(3rem+env(safe-area-inset-top,0px))] sm:min-h-[calc(3.5rem+env(safe-area-inset-top,0px))]">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <span className="hidden sm:inline text-sm font-bold truncate">TebakinAja 🗺️</span>
+          <span className="sm:hidden text-base" aria-hidden>🗺️</span>
           <button
             onClick={handleExitGame}
-            className="text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-300"
+            className="text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-300 shrink-0 p-1"
             title="Keluar dari game"
           >
             <LogOut size={18} />
           </button>
 
-          <span>Ronde {state.round}/{state.maxRounds}</span>
+          <span className="text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0">
+            R{state.round}/{state.maxRounds}
+          </span>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Tombol cara bermain */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button 
             onClick={() => setShowHowToPlay(true)}
-            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-300"
+            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-300 p-1.5"
+            aria-label="Cara bermain"
           >
-            <HelpCircle size={20} />
+            <HelpCircle size={18} className="sm:w-5 sm:h-5" />
           </button>
 
-          {/* Tombol settings */}
           <button 
             onClick={() => setShowSettings(true)}
-            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-300"
+            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-300 p-1.5"
+            aria-label="Pengaturan"
           >
-            <Settings size={20} />
+            <Settings size={18} className="sm:w-5 sm:h-5" />
           </button>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-secondary-dark dark:text-secondary font-extrabold text-sm transition-colors duration-300">
-              <Trophy fill="currentColor" size={16} />
-              {state.score} pts
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-1 text-secondary-dark dark:text-secondary font-extrabold text-xs sm:text-sm transition-colors duration-300">
+              <Trophy fill="currentColor" size={14} className="sm:w-4 sm:h-4 shrink-0" />
+              <span className="tabular-nums">{state.score}</span>
             </div>
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-bold text-sm transition-colors duration-300
+            <div className={`flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-bold text-xs sm:text-sm transition-colors duration-300 tabular-nums
               ${state.timeLeft <= 10 
                 ? 'bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400 animate-pulse' 
                 : 'bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300'}`}
             >
-              <Timer size={15} />
+              <Timer size={14} className="sm:w-[15px] sm:h-[15px] shrink-0" />
               00:{state.timeLeft.toString().padStart(2, '0')}
             </div>
           </div>

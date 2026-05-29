@@ -35,14 +35,39 @@ const LIGHT_MAP_STYLE = [
   { featureType: 'poi', stylers: [{ visibility: 'off' }] },
 ];
 
+const getMapPadding = () => {
+  const h = window.innerHeight;
+  const w = window.innerWidth;
+  const modalBottom = Math.min(h * 0.55, 360);
+  return {
+    top: w < 640 ? 52 : 64,
+    right: w < 640 ? 12 : 40,
+    bottom: w < 640 ? modalBottom + 16 : 220,
+    left: w < 640 ? 12 : 40,
+  };
+};
+
 const MapView = ({ onMapClick, isClickable, mapGuess }) => {
   const { state, dispatch } = useContext(GameContext);
   const setMapInstance = (map) => dispatch({ type: 'SET_MAP_INSTANCE', payload: map });
+
+  const [mapPadding, setMapPadding] = useState(getMapPadding);
 
   // State untuk track dark mode
   const [isDarkMode, setIsDarkMode] = useState(
     document.documentElement.classList.contains('dark')
   );
+
+  useEffect(() => {
+    const updatePadding = () => setMapPadding(getMapPadding());
+    updatePadding();
+    window.addEventListener('resize', updatePadding);
+    window.addEventListener('orientationchange', updatePadding);
+    return () => {
+      window.removeEventListener('resize', updatePadding);
+      window.removeEventListener('orientationchange', updatePadding);
+    };
+  }, []);
 
   // Observer untuk deteksi perubahan class di <html>
   useEffect(() => {
@@ -80,11 +105,9 @@ const MapView = ({ onMapClick, isClickable, mapGuess }) => {
       const bounds = new window.google.maps.LatLngBounds();
       bounds.extend({ lat: mapGuess.lat, lng: mapGuess.lng });
       bounds.extend({ lat: state.currentQuestion.lat, lng: state.currentQuestion.lng });
-      state.mapInstance.fitBounds(bounds, {
-        top: 80, right: 40, bottom: 200, left: 40
-      });
+      state.mapInstance.fitBounds(bounds, mapPadding);
     }
-  }, [showActualLocation]);
+  }, [showActualLocation, mapPadding, mapGuess, state.mapInstance, state.currentQuestion, state.answerMethod]);
 
   return (
     // Absolute inset-0 — mengisi seluruh parent GameScreen
@@ -92,7 +115,7 @@ const MapView = ({ onMapClick, isClickable, mapGuess }) => {
       {/* Hint overlay saat MAP mode dan modal tersembunyi */}
       {isClickable && (
         <div
-          className="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-md font-bold text-sm text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300 pointer-events-none"
+          className="absolute top-[calc(3.25rem+env(safe-area-inset-top,0px))] sm:top-16 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-20 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 sm:px-4 py-2 rounded-full shadow-md font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700/50 transition-colors duration-300 pointer-events-none text-center max-w-[calc(100%-1.5rem)] sm:max-w-none sm:w-max mx-auto sm:mx-0"
           style={{ animation: 'bounce 1s infinite' }}
         >
           👆 Klik peta untuk menandai lokasi

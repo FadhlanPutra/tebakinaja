@@ -24,6 +24,14 @@ main.bg-light {
 }
 
 @layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .game-modal-bottom {
+    bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }

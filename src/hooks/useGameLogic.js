@@ -157,10 +157,10 @@ export const useGameLogic = () => {
 
       const sessionId = generateSessionId(state.token || 'guest');
       dispatch({ type: 'SET_SESSION_ID', payload: sessionId });
-      dispatch({ type: 'START_GAME', payload: { placesList: places } });
 
-      // console.log('[startGame] Calling prepareNextRound...');
+      // Siapkan clue ronde 1 dulu — baru masuk layar game (hindari peta kosong)
       await prepareNextRound(places, [], sessionId, 1, city);
+      dispatch({ type: 'START_GAME', payload: { placesList: places } });
       // console.log('[startGame] prepareNextRound DONE');
 
       prefetchRemainingClues(places, [places[0]?.name], sessionId, city);
@@ -247,6 +247,7 @@ export const useGameLogic = () => {
               question: cachedClue,
               placeName: cachedClue.placeName,
               method: cachedClue.method || pickMethod(),
+              activateTimer: state.screen === 'GAME',
             }
           });
 
@@ -282,7 +283,12 @@ export const useGameLogic = () => {
       const method = pickMethod();
       dispatch({
         type: 'SET_QUESTION',
-        payload: { question: questionData, placeName: targetPlace.name, method }
+        payload: {
+          question: questionData,
+          placeName: targetPlace.name,
+          method,
+          activateTimer: state.screen === 'GAME',
+        }
       });
 
       const difficulty = questionData.difficulty || 'medium';
@@ -492,6 +498,10 @@ export const useGameLogic = () => {
       }
       dispatch({ type: 'END_GAME' });
     } else {
+      dispatch({
+        type: 'SET_LOADING',
+        payload: { status: true, message: 'Menyiapkan ronde berikutnya...' },
+      });
       dispatch({ type: 'NEXT_ROUND' });
       await prepareNextRound(
         state.placesList,

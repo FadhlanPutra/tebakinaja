@@ -14,6 +14,7 @@ const initialState = {
   city: '',
   placesList: [],
   playedPlaces: [],
+  roundPlaces: [],
   currentQuestion: null,
   round: 1,
   maxRounds: 5,
@@ -63,6 +64,7 @@ const gameReducer = (state, action) => {
       return {
         ...state,
         placesList: action.payload.placesList,
+        roundPlaces: action.payload.roundPlaces || [],
         screen: 'GAME',
         round: 1,
         score: 0,

@@ -116,6 +116,116 @@ const computeDifficultyFromData = (placeData, otherPlaces = []) => {
   return 'hard';
 };
 
+const normalizeName = (value = '') =>
+  String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * Rakit clueData final dari output model mentah + data tempat.
+ * Dipakai bersama oleh generateGameClue (single) dan generateGameCluesBatch
+ * agar logika difficulty, distractor/choices, dan lat/lng tidak berbeda.
+ */
+const assembleClue = (raw, place, allPlaces = []) => {
+  const lat = place.lat
+    ?? place.geometry?.location?.lat?.()
+    ?? place.location?.lat?.();
+
+  const lng = place.lng
+    ?? place.geometry?.location?.lng?.()
+    ?? place.location?.lng?.();
+
+  const answer = raw.answer || place.name;
+
+  const sameCategory = allPlaces.filter(
+    p => p.name !== place.name && p.category === place.category
+  );
+  const distractorPool = sameCategory.length >= 3
+    ? sameCategory
+    : allPlaces.filter(p => p.name !== place.name);
+  const distractors = distractorPool
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 3)
+    .map(p => p.name);
+  const choices = [...distractors, answer].sort(() => 0.5 - Math.random());
+
+  const difficulty = computeDifficultyFromData(place, allPlaces) || raw.difficulty || 'medium';
+
+  return {
+    ...raw,
+    answer,
+    accepted_answers: raw.accepted_answers || [place.name, place.name.toLowerCase()],
+    difficulty,
+    choices,
+    lat,
+    lng,
+  };
+};
+
+/**
+ * Generate clue untuk BANYAK tempat dalam SATU request Gemini.
+ * Mengurangi jumlah request drastis (1 request untuk N tempat).
+ * @param {Array} places - tempat yang mau dibuatkan clue (mis. 10)
+ * @param {Array} allPlaces - seluruh tempat di kota (untuk distractor & difficulty)
+ * @returns {Promise<Map<string, Object>>} map placeName -> clueData
+ */
+export const generateGameCluesBatch = async (places, allPlaces = []) => {
+  if (!places || places.length === 0) return new Map();
+
+  const list = places
+    .map((p, i) => `${i + 1}. Nama: ${p.name} | Kategori: ${p.category || 'tempat umum'} | Alamat: ${p.address || 'Indonesia'}`)
+    .join('\n');
+
+  const prompt = `
+    Anda adalah AI pembuat kuis game geoguessr bernama "TebakinAja".
+    Buatkan 1 teka-teki untuk SETIAP tempat pada daftar berikut.
+
+    DAFTAR TEMPAT:
+    ${list}
+
+    ATURAN (berlaku untuk semua tempat):
+    - clue 2-3 kalimat, maksimal 280 karakter, fun dan relatable
+    - JANGAN sebut atau memuat potongan kata apa pun dari nama tempat di clue
+    - accepted_answers: variasi SPESIFIK & unik (nama lengkap, singkatan populer, versi tanpa awalan mall/plaza/the); minimal 2 kata ATAU akronim unik; JANGAN kata generik yang merujuk banyak tempat
+    - fun_fact: 1-2 kalimat, fakta yang bisa diverifikasi; hanya tulis yang kamu yakin benar, jangan mengarang tahun/angka/nama
+    - "answer" harus PERSIS sama dengan nama tempat
+    - "place_name" harus PERSIS sama dengan nama tempat pada daftar
+
+    Respons HANYA JSON array (tanpa teks lain), urutan dan jumlah SAMA dengan daftar:
+    [
+      { "place_name": "Nama Tempat", "clue": "...", "answer": "Nama Tempat", "accepted_answers": ["..."], "fun_fact": "..." }
+    ]
+  `;
+
+  const responseText = await generateClue(prompt);
+  const cleaned = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  let arr;
+  try {
+    arr = JSON.parse(cleaned);
+  } catch (parseError) {
+    throw new Error(`Batch JSON tidak valid: ${parseError.message}`);
+  }
+
+  if (!Array.isArray(arr) || arr.length === 0) {
+    throw new Error('Batch hasil kosong atau bukan array');
+  }
+
+  const map = new Map();
+  places.forEach((place) => {
+    const target = normalizeName(place.name);
+    const raw = arr.find((a) =>
+      (a.place_name && normalizeName(a.place_name) === target) ||
+      (a.answer && normalizeName(a.answer) === target)
+    );
+    if (raw) map.set(place.name, assembleClue(raw, place, allPlaces));
+  });
+
+  if (map.size === 0) {
+    throw new Error('Tidak ada entri batch yang cocok dengan daftar tempat');
+  }
+
+  return map;
+};
+
 export const generateGameClue = async (placeData, otherPlaces) => {
   try {
     const prompt = `
@@ -187,42 +297,9 @@ export const generateGameClue = async (placeData, otherPlaces) => {
       };
     }
 
-    // Difficulty ditentukan dari data popularitas; model hanya fallback
-    const computedDifficulty = computeDifficultyFromData(placeData, otherPlaces);
-    if (computedDifficulty) {
-      jsonResult.difficulty = computedDifficulty;
-    }
-
-    // Generate distractors for choices — prioritas kategori yang sama agar
-    // pemain tidak bisa menebak dari jenis tempatnya
-    const sameCategory = otherPlaces.filter(
-      p => p.name !== placeData.name && p.category === placeData.category
-    );
-    const distractorPool = sameCategory.length >= 3
-      ? sameCategory
-      : otherPlaces.filter(p => p.name !== placeData.name);
-    const distractors = distractorPool
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .map(p => p.name);
-
-    // Add correct answer and shuffle
-    const choices = [...distractors, jsonResult.answer].sort(() => 0.5 - Math.random());
-
-    const lat = placeData.lat 
-      ?? placeData.geometry?.location?.lat?.() 
-      ?? placeData.location?.lat?.();
-
-    const lng = placeData.lng 
-      ?? placeData.geometry?.location?.lng?.() 
-      ?? placeData.location?.lng?.();
-
-  return {
-    ...jsonResult,
-    choices,
-    lat,
-    lng,
-  };
+    // Difficulty ditentukan dari data popularitas; model hanya fallback.
+    // assembleClue menyatukan difficulty, distractor/choices, dan lat/lng.
+    return assembleClue(jsonResult, placeData, otherPlaces);
   } catch (error) {
     console.error("Gemini API Error:", error);
     throw new Error("Gagal mengambil data dari AI. Periksa API Key atau koneksi Anda.");

@@ -1,106 +1,89 @@
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from './firebaseService';
 
-const CACHE_COLLECTION = 'clue_cache';
+const CLUE_COLLECTION = 'place_clues';
+
+// Cache clue bersifat GLOBAL per-tempat (dibagikan semua user).
+// Doc ID = `${city}__${slug(placeName)}` sehingga:
+//  - lintas sesi & lintas pemain, clue yang sama tidak di-generate ulang
+//  - kota bisa di-prewarm di background saat tempat di-fetch
+const placeKey = (city, placeName) =>
+  `${String(city).toLowerCase().trim()}__${String(placeName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')}`;
 
 /**
- * Simpan batch clue ke Firestore cache
- * @param {string} sessionId - ID unik sesi game
- * @param {Object} clues - object berisi clue per ronde { 2: clueData, 3: clueData, ... }
+ * Ambil clue satu tempat dari cache global.
+ * @returns {Object|null} clueData atau null kalau belum pernah dibuat
  */
-export const saveCluesToCache = async (sessionId, clues) => {
+export const getPlaceClue = async (city, placeName) => {
   try {
-    const docRef = doc(db, CACHE_COLLECTION, sessionId);
-    await setDoc(docRef, {
-      created_at: Date.now(),
-      used_rounds: [],  // track ronde mana yang sudah diambil
-      clues,
-    });
-    // console.log(`[ClueCache] Saved ${Object.keys(clues).length} clues for session ${sessionId}`);
-  } catch (error) {
-    console.error('[ClueCache] Failed to save clues:', error);
-  }
-};
-
-/**
- * Ambil clue dari cache berdasarkan nomor ronde
- * @param {string} sessionId
- * @param {number} round - nomor ronde (2-5)
- * @returns clueData atau null kalau tidak ada
- */
-export const getClueFromCache = async (sessionId, round) => {
-  try {
-    const docRef = doc(db, CACHE_COLLECTION, sessionId);
+    const docRef = doc(db, CLUE_COLLECTION, placeKey(city, placeName));
     const docSnap = await getDoc(docRef);
-
     if (!docSnap.exists()) return null;
-
-    const data = docSnap.data();
-    const clue = data.clues?.[round.toString()];
-
-    if (!clue) return null;
-
-    // Tandai ronde ini sudah digunakan
-    await updateDoc(docRef, {
-      used_rounds: [...(data.used_rounds || []), round],
-    });
-
-    return clue;
+    return docSnap.data().clue || null;
   } catch (error) {
-    console.error('[ClueCache] Failed to get clue:', error);
+    console.error('[ClueCache] getPlaceClue failed:', error);
     return null;
   }
 };
 
 /**
- * Hapus cache sesi yang sudah selesai
- * @param {string} sessionId
+ * Simpan clue satu tempat ke cache global.
  */
-export const deleteSessionCache = async (sessionId) => {
+export const savePlaceClue = async (city, placeName, clue) => {
   try {
-    await deleteDoc(doc(db, CACHE_COLLECTION, sessionId));
-    // console.log(`[ClueCache] Deleted cache for session ${sessionId}`);
+    const docRef = doc(db, CLUE_COLLECTION, placeKey(city, placeName));
+    await setDoc(docRef, {
+      city: String(city).toLowerCase().trim(),
+      place_name: placeName,
+      clue,
+      created_at: Date.now(),
+    });
   } catch (error) {
-    console.error('[ClueCache] Failed to delete cache:', error);
+    console.error('[ClueCache] savePlaceClue failed:', error);
   }
 };
 
 /**
- * Cleanup cache lama — dipanggil saat startGame
- * Hapus cache yang umurnya > 24 jam DAN bukan dibuat dalam 10 menit terakhir
+ * Ambil himpunan nama tempat yang SUDAH punya clue untuk satu kota.
+ * Dipakai untuk menentukan batch uncached tanpa nembak Gemini.
+ * @returns {Promise<Set<string>>}
  */
-export const cleanupOldCache = async () => {
+export const getCachedPlaceNames = async (city) => {
   try {
-    const now = Date.now();
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
-    const tenMinutesAgo = now - 10 * 60 * 1000;
-
-    const snapshot = await getDocs(collection(db, CACHE_COLLECTION));
-    
-    const deletePromises = [];
+    const cityKey = String(city).toLowerCase().trim();
+    const q = query(collection(db, CLUE_COLLECTION), where('city', '==', cityKey));
+    const snapshot = await getDocs(q);
+    const names = new Set();
     snapshot.forEach((docSnap) => {
-      const { created_at } = docSnap.data();
-      const isOlderThanOneDay = created_at < oneDayAgo;
-      const isNewerThanTenMinutes = created_at > tenMinutesAgo;
-
-      // Hapus hanya kalau lebih dari 24 jam DAN bukan yang baru dibuat
-      if (isOlderThanOneDay && !isNewerThanTenMinutes) {
-        deletePromises.push(deleteDoc(docSnap.ref));
-      }
+      const name = docSnap.data().place_name;
+      if (name) names.add(name);
     });
+    return names;
+  } catch (error) {
+    console.error('[ClueCache] getCachedPlaceNames failed:', error);
+    return new Set();
+  }
+};
 
+/**
+ * Hapus clue yang lebih tua dari maxAgeMs (default 30 hari).
+ * Dipanggil saat startGame agar collection tidak membengkak.
+ */
+export const cleanupOldClues = async (maxAgeMs = 30 * 24 * 60 * 60 * 1000) => {
+  try {
+    const cutoff = Date.now() - maxAgeMs;
+    const q = query(collection(db, CLUE_COLLECTION), where('created_at', '<', cutoff));
+    const snapshot = await getDocs(q);
+
+    const deletePromises = [];
+    snapshot.forEach((docSnap) => deletePromises.push(deleteDoc(docSnap.ref)));
     if (deletePromises.length > 0) {
       await Promise.all(deletePromises);
-      // console.log(`[ClueCache] Cleaned up ${deletePromises.length} old cache entries`);
     }
   } catch (error) {
-    console.error('[ClueCache] Cleanup failed:', error);
+    console.error('[ClueCache] cleanupOldClues failed:', error);
   }
-};
-
-/**
- * Generate session ID unik untuk satu game
- */
-export const generateSessionId = (token) => {
-  return `${token}_${Date.now()}`;
 };

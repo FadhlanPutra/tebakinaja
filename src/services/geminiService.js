@@ -10,81 +10,118 @@ export const generateClue = async (prompt) => {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-  if (API_KEY) {
-    // console.log('[GeminiService] Running in Direct Mode (Frontend SDK)');
-    const genAI = new GoogleGenerativeAI(API_KEY);
-    const MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-3.1-flash-lite";
-    const model = genAI.getGenerativeModel({ model: MODEL });
+  // Fallback ke gateway Nutaraline (via backend /api/fall/nutaraline)
+  const generateWithNutaraline = async () => {
+    if (!BACKEND_URL) {
+      throw new Error('Fallback Nutaraline tidak tersedia: VITE_BACKEND_URL kosong');
+    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/fall/nutaraline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+        },
+        body: JSON.stringify({ prompt }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    const generateWithRetry = async (model, payload, maxRetries = 3) => {
-      for (let i = 0; i < maxRetries; i++) {
-        try {
-          return await model.generateContent(payload);
-        } catch (error) {
-          if (error.message?.includes('503') && i < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
-            continue;
-          }
-          throw error;
-        }
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Nutaraline fallback gagal: ${res.status} ${errText}`);
       }
-    };
+      const data = await res.json();
+      if (!data.text) throw new Error('Nutaraline fallback: respons kosong');
+      return data.text;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  };
 
-    const result = await generateWithRetry(model, {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
-    });
+  try {
+    if (API_KEY) {
+      // console.log('[GeminiService] Running in Direct Mode (Frontend SDK)');
+      const genAI = new GoogleGenerativeAI(API_KEY);
+      const MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-3.1-flash-lite";
+      const model = genAI.getGenerativeModel({ model: MODEL });
 
-    return result.response.text();
-  } else {
-    // console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
-
-    const MAX_RETRIES = 3;
-    const TIMEOUT_MS = 20000;
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-      try {
-        // console.log(`[GeminiService] Attempt ${attempt}/${MAX_RETRIES}...`);
-
-        const response = await fetch(`${BACKEND_URL}/api/generate-clue`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
-          },
-          body: JSON.stringify({ prompt }),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        // console.log('[GeminiService] Response status:', response.status);
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => '');
-          throw new Error(`Gagal memanggil backend proxy: ${response.status} ${response.statusText}. ${errorText}`);
+      const generateWithRetry = async (model, payload, maxRetries = 3) => {
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            return await model.generateContent(payload);
+          } catch (error) {
+            if (error.message?.includes('503') && i < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+              continue;
+            }
+            throw error;
+          }
         }
+      };
 
-        const data = await response.json();
-        return data.text;
+      const result = await generateWithRetry(model, {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
+      });
 
-      } catch (err) {
-        clearTimeout(timeoutId);
+      return result.response.text();
+    } else {
+      // console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
 
-        const isTimeout = err.name === 'AbortError';
-        console.warn(`[GeminiService] Attempt ${attempt} failed (${isTimeout ? 'timeout' : err.message})`);
+      // Coba Gemini maksimal 2x; kalau tetap gagal → fallback ke Nutaraline
+      const MAX_RETRIES = 2;
+      const TIMEOUT_MS = 20000;
 
-        if (attempt === MAX_RETRIES) {
-          throw new Error('Gagal mengambil data dari AI setelah beberapa percobaan. Coba lagi.');
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        try {
+          // console.log(`[GeminiService] Attempt ${attempt}/${MAX_RETRIES}...`);
+
+          const response = await fetch(`${BACKEND_URL}/api/generate-clue`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-App-Token': import.meta.env.VITE_APP_SECRET_TOKEN,
+            },
+            body: JSON.stringify({ prompt }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          // console.log('[GeminiService] Response status:', response.status);
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => '');
+            throw new Error(`Gagal memanggil backend proxy: ${response.status} ${response.statusText}. ${errorText}`);
+          }
+
+          const data = await response.json();
+          return data.text;
+
+        } catch (err) {
+          clearTimeout(timeoutId);
+
+          const isTimeout = err.name === 'AbortError';
+          console.warn(`[GeminiService] Attempt ${attempt} failed (${isTimeout ? 'timeout' : err.message})`);
+
+          if (attempt === MAX_RETRIES) {
+            throw new Error('Gagal mengambil data dari Gemini setelah beberapa percobaan.');
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
-
-        // console.log(`[GeminiService] Retrying in 1s...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
+  } catch (geminiError) {
+    console.warn('[GeminiService] Gemini gagal, fallback ke Nutaraline:', geminiError?.message);
+    return generateWithNutaraline();
   }
 };
 

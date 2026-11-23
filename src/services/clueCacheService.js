@@ -1,12 +1,12 @@
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 import { db } from './firebaseService';
 
-const CLUE_COLLECTION = 'place_clues';
-
 // Cache clue bersifat GLOBAL per-tempat (dibagikan semua user).
-// Doc ID = `${city}__${slug(placeName)}` sehingga:
-//  - lintas sesi & lintas pemain, clue yang sama tidak di-generate ulang
-//  - kota bisa di-prewarm di background saat tempat di-fetch
+// Memakai koleksi 'clue_cache' (sudah ada rules). Doc ID = `${city}__${slug}`
+// sehingga lintas sesi & lintas pemain, clue yang sama tidak dibuat ulang.
+// Doc lama ber-shape { clues: {...} } tidak bentrok karena ID-nya berbeda.
+const CLUE_COLLECTION = 'clue_cache';
+
 const placeKey = (city, placeName) =>
   `${String(city).toLowerCase().trim()}__${String(placeName)
     .toLowerCase()

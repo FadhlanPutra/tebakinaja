@@ -13,7 +13,8 @@ export const generateClue = async (prompt) => {
   if (API_KEY) {
     // console.log('[GeminiService] Running in Direct Mode (Frontend SDK)');
     const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+    const MODEL = import.meta.env.VITE_GEMINI_MODEL || "gemini-3.1-flash-lite";
+    const model = genAI.getGenerativeModel({ model: MODEL });
 
     const generateWithRetry = async (model, payload, maxRetries = 3) => {
       for (let i = 0; i < maxRetries; i++) {
@@ -31,7 +32,7 @@ export const generateClue = async (prompt) => {
 
     const result = await generateWithRetry(model, {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7 }
+      generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
     });
 
     return result.response.text();
@@ -92,6 +93,29 @@ export const generateClue = async (prompt) => {
  * @param {Object} placeData - Data from Google Places API (name, address, etc.)
  * @returns {Promise<Object>} JSON containing clue, answer, difficulty, fun_fact, choices, lat, lng
  */
+/**
+ * Tentukan difficulty dari popularitas (userRatingCount) relatif terhadap
+ * tempat lain di kota yang sama. Makin banyak ulasan → makin terkenal → easy.
+ * Mengembalikan null kalau data tidak cukup, sehingga model jadi fallback.
+ * @param {Object} placeData
+ * @param {Array} otherPlaces
+ * @returns {'easy'|'medium'|'hard'|null}
+ */
+const computeDifficultyFromData = (placeData, otherPlaces = []) => {
+  const own = placeData.userRatingCount;
+  if (typeof own !== 'number' || own <= 0) return null;
+
+  const counts = otherPlaces
+    .map(p => p.userRatingCount)
+    .filter(c => typeof c === 'number' && c > 0);
+  if (counts.length < 3) return null;
+
+  const rank = counts.filter(c => c <= own).length / counts.length;
+  if (rank >= 0.8) return 'easy';
+  if (rank >= 0.4) return 'medium';
+  return 'hard';
+};
+
 export const generateGameClue = async (placeData, otherPlaces) => {
   try {
     const prompt = `
@@ -113,7 +137,15 @@ export const generateGameClue = async (placeData, otherPlaces) => {
       - Sesuaikan dengan kategori: restoran → bahas menu/suasana, mall → bahas tenant/arsitektur, taman → bahas aktivitas
       - JANGAN selalu bahas sejarah kolonial
       - JANGAN sebut nama tempat di clue
+      - JANGAN memuat kata apa pun dari nama tempat, termasuk potongan katanya
       - Buat clue yang fun dan relatable, bukan seperti buku sejarah
+      - Clue 2-3 kalimat, maksimal 280 karakter
+
+      ATURAN FAKTA:
+      - fun_fact 1-2 kalimat, berisi fakta yang bisa diverifikasi
+      - Hanya tulis fakta yang kamu yakin benar
+      - Kalau tidak yakin, deskripsikan dari kategori dan area alamat saja
+      - Jangan mengarang tahun, angka, atau nama
 
       Untuk accepted_answers:
       - WAJIB isi dengan variasi nama yang SPESIFIK dan UNIK untuk tempat ini saja
@@ -147,7 +179,7 @@ export const generateGameClue = async (placeData, otherPlaces) => {
       console.error("Failed to parse Gemini JSON:", parseError);
       // Fallback
       jsonResult = {
-        clue: `Tempat ikonik di sekitar ${placeData.formatted_address}. Sangat populer dikunjungi. Bisakah kamu menebaknya?`,
+        clue: `Tempat ikonik di sekitar ${placeData.address}. Sangat populer dikunjungi. Bisakah kamu menebaknya?`,
         answer: placeData.name,
         accepted_answers: [placeData.name, placeData.name.toLowerCase()],
         difficulty: "medium",
@@ -155,13 +187,25 @@ export const generateGameClue = async (placeData, otherPlaces) => {
       };
     }
 
-    // Generate distractors for choices
-    const distractors = otherPlaces
-      .filter(p => p.name !== placeData.name)
+    // Difficulty ditentukan dari data popularitas; model hanya fallback
+    const computedDifficulty = computeDifficultyFromData(placeData, otherPlaces);
+    if (computedDifficulty) {
+      jsonResult.difficulty = computedDifficulty;
+    }
+
+    // Generate distractors for choices — prioritas kategori yang sama agar
+    // pemain tidak bisa menebak dari jenis tempatnya
+    const sameCategory = otherPlaces.filter(
+      p => p.name !== placeData.name && p.category === placeData.category
+    );
+    const distractorPool = sameCategory.length >= 3
+      ? sameCategory
+      : otherPlaces.filter(p => p.name !== placeData.name);
+    const distractors = distractorPool
       .sort(() => 0.5 - Math.random())
       .slice(0, 3)
       .map(p => p.name);
-    
+
     // Add correct answer and shuffle
     const choices = [...distractors, jsonResult.answer].sort(() => 0.5 - Math.random());
 

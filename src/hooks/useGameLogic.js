@@ -31,38 +31,60 @@ const GENERIC_TOKENS = new Set([
 ]);
 
 const tokenWeight = (token) => (GENERIC_TOKENS.has(token) ? 0.35 : 1);
-const isSpecificSingleToken = (tokens) =>
-  tokens.length === 1 && tokens[0].length >= 4 && !GENERIC_TOKENS.has(tokens[0]);
+
+const METHOD_MULT = { MCQ: 0.7, MAP: 1.0, TEXT: 1.5 };
+
+// Skor TEXT: 0 (salah), 0.5 (hampir), atau 1 (tepat)
+const scoreText = (accepted, raw) => {
+  const input = normalizeText(raw);
+  if (input.length < 3) return 0;
+
+  const vocab = Array.from(
+    new Set(accepted.flatMap((a) => a.split(' ')).filter((t) => t.length >= 4))
+  );
+  const fuse = new Fuse(vocab, { threshold: 0.25 });
+
+  // Koreksi typo per kata
+  const userTokens = input.split(' ').filter(Boolean).map((t) => (
+    accepted.some((a) => a.split(' ').includes(t))
+      ? t
+      : (fuse.search(t)[0]?.item ?? t)
+  ));
+
+  let best = { overlap: 0, answer: '' };
+  for (const a of accepted) {
+    const answerTokens = a.split(' ');
+    const total = answerTokens.reduce((s, t) => s + tokenWeight(t), 0) || 1;
+    const hit = answerTokens.reduce(
+      (s, t) => s + (userTokens.includes(t) ? tokenWeight(t) : 0),
+      0
+    );
+    if (hit / total > best.overlap) best = { overlap: hit / total, answer: a };
+  }
+
+  // Wajib menyebut minimal 1 kata spesifik (bukan generik)
+  const hasSpecific = best.answer
+    .split(' ')
+    .some((t) => !GENERIC_TOKENS.has(t) && userTokens.includes(t));
+  if (!hasSpecific) return 0;
+
+  if (best.overlap >= 0.85) return 1;
+  if (best.overlap >= 0.6) return 0.5;
+  return 0;
+};
 
 const buildAcceptedAnswers = (question = {}) => {
-  const baseAnswers = [
-    ...(question.accepted_answers || []),
-    question.answer,
-  ].filter(Boolean);
-
-  const normalizedSet = new Set(baseAnswers.map(normalizeText).filter(Boolean));
-  const expanded = new Set(normalizedSet);
-
-  normalizedSet.forEach((ans) => {
-    const words = ans.split(' ').filter(Boolean);
-    if (words.length >= 2) {
-      expanded.add(words.join(' '));
-      expanded.add(words.slice(0, -1).join(' '));
-      expanded.add(words.slice(1).join(' '));
-    }
-
-    // Ambil singkatan huruf awal untuk nama multi-kata (contoh: mall btm bogor -> mbb)
-    if (words.length >= 2) {
-      const acronym = words.map((w) => w[0]).join('');
-      if (acronym.length >= 2) expanded.add(acronym);
-    }
-
-    // Alias populer untuk prefiks umum
-    const stripped = ans.replace(/^(mall|mal|plaza|pusat|the)\s+/i, '').trim();
-    if (stripped.length >= 3) expanded.add(stripped);
-  });
-
-  return Array.from(expanded).filter(Boolean);
+  const out = new Set();
+  [...(question.accepted_answers || []), question.answer]
+    .filter(Boolean)
+    .forEach((ans) => {
+      const n = normalizeText(ans);
+      if (!n) return;
+      out.add(n);
+      const stripped = n.replace(/^(mall|mal|plaza|pusat|the)\s+/, '').trim();
+      if (stripped.split(' ').filter(Boolean).length >= 2) out.add(stripped);
+    });
+  return Array.from(out).filter(Boolean);
 };
 
 const pickMethod = () => {
@@ -91,10 +113,15 @@ const calculateMapScore = (distanceKm, radiusKm) => {
   return Math.round(500 * Math.exp(-ratio * 2));
 };
 
-// Offset koordinat secara acak sejauh 0.5-1.5 km ke arah acak
+// Skor MAP: 1 di pusat, menurun kuadratik hingga 0 di tepi radius
+const mapFraction = (d, { preciseThreshold: p, radius: r }) => (
+  d <= p ? 1 : d >= r ? 0 : Math.pow(1 - (d - p) / (r - p), 2)
+);
+
+// Offset koordinat acak 30-80% dari radius ke arah acak
 // Dipakai untuk geser tengah lingkaran agar tidak tepat di jawaban
-const offsetCoordinate = (lat, lng, minKm = 0.5, maxKm = 1.5) => {
-  const distanceKm = minKm + Math.random() * (maxKm - minKm);
+const offsetCoordinate = (lat, lng, radiusKm) => {
+  const distanceKm = radiusKm * (0.3 + Math.random() * 0.5);
   const angle = Math.random() * 2 * Math.PI;
   const deltaLat = (distanceKm / 111) * Math.cos(angle);
   const deltaLng = (distanceKm / (111 * Math.cos(lat * Math.PI / 180))) * Math.sin(angle);
@@ -253,7 +280,7 @@ export const useGameLogic = () => {
 
           if (cachedClue.difficulty) {
             const config = DIFFICULTY_CONFIG[cachedClue.difficulty];
-            const offsetCenter = offsetCoordinate(cachedClue.lat, cachedClue.lng);
+            const offsetCenter = offsetCoordinate(cachedClue.lat, cachedClue.lng, config.radius);
             dispatch({
               type: 'SET_CIRCLE',
               payload: {
@@ -293,7 +320,7 @@ export const useGameLogic = () => {
 
       const difficulty = questionData.difficulty || 'medium';
       const config = DIFFICULTY_CONFIG[difficulty];
-      const offsetCenter = offsetCoordinate(targetPlace.lat, targetPlace.lng);
+      const offsetCenter = offsetCoordinate(targetPlace.lat, targetPlace.lng, config.radius);
       dispatch({
         type: 'SET_CIRCLE',
         payload: {
@@ -321,92 +348,13 @@ export const useGameLogic = () => {
     let textResultStatus = null;
 
     if (method === 'TEXT') {
-      const acceptedAnswers = buildAcceptedAnswers(state.currentQuestion);
-      const userInput = normalizeText(data);
-      const fullPoints = 100 + (state.timeLeft * 2);
-      const userTokens = userInput.split(' ').filter(Boolean);
-
-      const bestWeightedOverlap = acceptedAnswers.reduce((best, answer) => {
-        const answerTokens = answer.split(' ').filter(Boolean);
-        if (answerTokens.length === 0) return best;
-
-        const matchedWeight = answerTokens.reduce((sum, token) => (
-          userTokens.includes(token) ? sum + tokenWeight(token) : sum
-        ), 0);
-        const totalWeight = answerTokens.reduce((sum, token) => sum + tokenWeight(token), 0) || 1;
-        return Math.max(best, matchedWeight / totalWeight);
-      }, 0);
-
-      const shortestAnswer = acceptedAnswers.reduce((a, b) =>
-        a.length < b.length ? a : b
-      );
-      const minLength = Math.max(4, Math.floor(shortestAnswer.length * 0.4));
-
-      if (userInput.length < minLength) {
-        isCorrect = false;
-        points = 0;
-        textResultStatus = 'wrong';
-      } else {
-        const fuse = new Fuse(acceptedAnswers, {
-          threshold: 0.3,
-          minMatchCharLength: 4,
-          ignoreLocation: true,
-        });
-        const exactResult = fuse.search(userInput);
-
-        if (
-          exactResult.length > 0 &&
-          bestWeightedOverlap >= 0.85 &&
-          (userTokens.length >= 2 || isSpecificSingleToken(userTokens))
-        ) {
-          isCorrect = true;
-          points = fullPoints;
-          textResultStatus = 'correct';
-        } else {
-          const fusePartial = new Fuse(acceptedAnswers, {
-            threshold: 0.6,
-            minMatchCharLength: 3,
-            ignoreLocation: true,
-          });
-          const partialResult = fusePartial.search(userInput);
-
-          if (partialResult.length > 0) {
-            const lengthRatio = userInput.length / shortestAnswer.length;
-
-            if (lengthRatio < 0.35 && bestWeightedOverlap < 0.4) {
-              isCorrect = false;
-              points = 0;
-              textResultStatus = 'wrong';
-            } else if (
-              bestWeightedOverlap >= 0.85 &&
-              (userTokens.length >= 2 || isSpecificSingleToken(userTokens))
-            ) {
-              isCorrect = true;
-              points = fullPoints;
-              textResultStatus = 'correct';
-            } else if (bestWeightedOverlap >= 0.6 || lengthRatio >= 0.6) {
-              isCorrect = true;
-              points = Math.round(fullPoints * 0.5);
-              textResultStatus = 'almost';
-            } else if (bestWeightedOverlap >= 0.35 || lengthRatio >= 0.45) {
-              isCorrect = true;
-              points = Math.round(fullPoints * 0.3);
-              textResultStatus = 'almost';
-            } else {
-              isCorrect = false;
-              points = 0;
-              textResultStatus = 'wrong';
-            }
-          } else {
-            isCorrect = false;
-            points = 0;
-            textResultStatus = 'wrong';
-          }
-        }
-      }
+      const frac = scoreText(buildAcceptedAnswers(state.currentQuestion), data);
+      isCorrect = frac > 0;
+      points = Math.round((100 + state.timeLeft) * frac * METHOD_MULT.TEXT);
+      textResultStatus = frac === 1 ? 'correct' : frac > 0 ? 'almost' : 'wrong';
     } else if (method === 'MCQ') {
       isCorrect = data === state.currentQuestion.answer;
-      if (isCorrect) points = 100 + (state.timeLeft * 2);
+      if (isCorrect) points = Math.round((100 + state.timeLeft) * METHOD_MULT.MCQ);
     } else if (method === 'MAP') {
       const { lat, lng } = data;
       const answerLat = state.currentQuestion.lat;
@@ -416,27 +364,12 @@ export const useGameLogic = () => {
       const distance = getDistanceFromLatLonInKm(lat, lng, answerLat, answerLng);
       distanceInfo = distance.toFixed(1);
 
-      if (distance <= config.preciseThreshold) {
-        // Tepat sasaran → benar penuh
-        isCorrect = true;
-        mapResultStatus = 'correct';
-        points = 100 + (state.timeLeft * 2);
-      } else if (distance <= config.radius) {
-        // Dalam radius tapi tidak presisi → hampir benar
-        isCorrect = true;
-        mapResultStatus = 'almost';
-        points = Math.round((100 + (state.timeLeft * 2)) * 0.5);
-      } else if (distance <= config.wrongThreshold) {
-        // Di luar radius tapi masih dalam threshold → hampir benar tapi sedikit
-        isCorrect = true;
-        mapResultStatus = 'almost';
-        points = Math.round((100 + (state.timeLeft * 2)) * 0.3);
-      } else {
-        // Terlalu jauh → salah
-        isCorrect = false;
-        mapResultStatus = 'wrong';
-        points = 0;
-      }
+      const frac = mapFraction(distance, config);
+      isCorrect = frac > 0;
+      points = Math.round((100 + state.timeLeft) * frac * METHOD_MULT.MAP);
+      mapResultStatus = distance <= config.preciseThreshold
+        ? 'correct'
+        : frac > 0 ? 'almost' : 'wrong';
     }
 
     handleResult(isCorrect, method, points, distanceInfo, mapResultStatus);

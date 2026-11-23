@@ -8,6 +8,7 @@ import ResultScreen from './components/ResultScreen';
 import ProfilePage from './components/ProfilePage';
 import { AnimatePresence } from 'framer-motion';
 import { useGameLogic } from './hooks/useGameLogic';
+import { Analytics } from '@vercel/analytics/react';
 
 const libraries = ['places'];
 
@@ -66,6 +67,7 @@ function App() {
   return (
     <GameProvider>
       <MainApp />
+      <Analytics />
     </GameProvider>
   );
 }

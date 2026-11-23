@@ -72,9 +72,10 @@ export const generateClue = async (prompt) => {
     } else {
       // console.log('[GeminiService] Running in Proxy Mode (Backend Server)');
 
-      // Coba Gemini maksimal 2x; kalau tetap gagal → fallback ke Nutaraline
-      const MAX_RETRIES = 2;
-      const TIMEOUT_MS = 20000;
+      // Gemini dicoba 1x saja (backend juga 1x, tanpa retry). Gagal apa pun,
+      // termasuk 429/503 -> langsung fallback ke Nutaraline. Timeout > timeout backend (12 dtk).
+      const MAX_RETRIES = 1;
+      const TIMEOUT_MS = 15000;
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         const controller = new AbortController();
@@ -103,6 +104,7 @@ export const generateClue = async (prompt) => {
           }
 
           const data = await response.json();
+          if (!data.text) throw new Error('Backend proxy mengembalikan respons kosong');
           return data.text;
 
         } catch (err) {

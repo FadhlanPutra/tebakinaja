@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebaseService';
 
 // Cache validity: 7 hari
-const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_DURATION_MS = 20 * 24 * 60 * 60 * 1000;
 const CACHE_COLLECTION = 'places_cache';
 
 /**

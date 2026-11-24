@@ -10,7 +10,10 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-
+// Jumlah dokumen yang diambil sebelum disaring. Lebih besar dari tampilan (10)
+// supaya entry yang disembunyikan (leaderboard === false) tidak mengurangi isi top 10.
+const LEADERBOARD_SIZE = 10;
+const LEADERBOARD_FETCH = 30;
 
 export const updateUserStats = async (identifier, stats) => {
   try {
@@ -24,14 +27,19 @@ export const updateUserStats = async (identifier, stats) => {
 
 export const saveScore = async (scoreData) => {
   const LEADERBOARD_MODE = import.meta.env.VITE_LEADERBOARD_MODE || 'unique';
-  
+
+  // Entry baru tampil di leaderboard secara default. Caller boleh menimpa
+  // lewat scoreData.leaderboard. Update entry lama TIDAK menyentuh field ini,
+  // jadi nilai false yang diset manual di Firestore tetap bertahan.
+  const newEntry = { leaderboard: true, ...scoreData };
+
   try {
     if (LEADERBOARD_MODE === 'unique') {
       // Cari entry yang sudah ada berdasarkan token atau uid
       const identifier = scoreData.token;
       if (!identifier) {
         // Tidak ada identifier → tambah entry baru saja
-        await addDoc(collection(db, 'leaderboard'), scoreData);
+        await addDoc(collection(db, 'leaderboard'), newEntry);
         return;
       }
 
@@ -44,7 +52,7 @@ export const saveScore = async (scoreData) => {
 
       if (querySnapshot.empty) {
         // Belum ada entry → buat baru
-        await addDoc(collection(db, 'leaderboard'), scoreData);
+        await addDoc(collection(db, 'leaderboard'), newEntry);
       } else {
         // Sudah ada entry → update hanya kalau skor baru lebih tinggi
         const existingDoc = querySnapshot.docs[0];
@@ -70,7 +78,7 @@ export const saveScore = async (scoreData) => {
       }
     } else {
       // Mode 'all' → semua entry masuk seperti sebelumnya
-      await addDoc(collection(db, 'leaderboard'), scoreData);
+      await addDoc(collection(db, 'leaderboard'), newEntry);
     }
   } catch (error) {
     console.error('[Leaderboard] Failed to save score:', error);
@@ -107,13 +115,18 @@ export const syncLeaderboardNickname = async (identifier, nickname) => {
 
 export const getLeaderboard = async () => {
   try {
-    const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
+    // Ambil lebih banyak dari 10, lalu saring di klien. Cara ini tidak butuh
+    // composite index Firestore, dan dokumen lama tanpa field `leaderboard`
+    // tetap tampil (hanya `leaderboard === false` yang disembunyikan).
+    const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(LEADERBOARD_FETCH));
     const querySnapshot = await getDocs(q);
     const leaderboard = [];
     querySnapshot.forEach((doc) => {
-      leaderboard.push({ id: doc.id, ...doc.data() });
+      const data = doc.data();
+      if (data.leaderboard === false) return;
+      leaderboard.push({ id: doc.id, ...data });
     });
-    return leaderboard;
+    return leaderboard.slice(0, LEADERBOARD_SIZE);
   } catch (e) {
     console.error("Error getting leaderboard: ", e);
     throw e;

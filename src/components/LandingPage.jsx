@@ -361,8 +361,7 @@ const LandingPage = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-slate-800 dark:text-slate-100 truncate transition-colors duration-300">{entry.nickname}</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate transition-colors duration-300">{entry.city} • {new Date(entry.created_at).toLocaleDateString()}</p>
-                        </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate transition-colors duration-300">{entry.city} • {new Date(entry.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>                        </div>
                         <div className="font-extrabold text-primary dark:text-primary-light shrink-0 text-lg transition-colors duration-300">
                           {entry.score}
                         </div>
